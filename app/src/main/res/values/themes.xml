@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- ============== LIGHT THEME ============== -->
+    <style name="AppTheme.Light" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">@color/colorPrimary</item>
+        <item name="android:colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="android:colorAccent">@color/colorAccent</item>
+        <item name="android:windowBackground">@color/colorBackground</item>
+        <item name="android:textColorPrimary">@color/colorTextPrimary</item>
+        <item name="android:textColorSecondary">@color/colorTextSecondary</item>
+        <item name="android:statusBarColor">@color/colorPrimaryDark</item>
+        <item name="android:navigationBarColor">@color/colorPrimaryDark</item>
+    </style>
+
+    <!-- ============== DARK THEME ============== -->
+    <style name="AppTheme.Dark" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorPrimary">@color/colorPrimary_dark</item>
+        <item name="android:colorPrimaryDark">@color/colorPrimaryDark_dark</item>
+        <item name="android:colorAccent">@color/colorAccent_dark</item>
+        <item name="android:windowBackground">@color/colorBackground_dark</item>
+        <item name="android:textColorPrimary">@color/colorTextPrimary_dark</item>
+        <item name="android:textColorSecondary">@color/colorTextSecondary_dark</item>
+        <item name="android:statusBarColor">@color/colorBackground_dark</item>
+        <item name="android:navigationBarColor">@color/colorBackground_dark</item>
+    </style>
+
+    <!-- ============== PLAYER THEME ============== -->
+    <style name="AppTheme.Player" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/playerBackground</item>
+        <item name="android:colorAccent">@color/colorAccent</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:statusBarColor">@color/black</item>
+        <item name="android:navigationBarColor">@color/black</item>
+    </style>
+
+    <!-- ============== TOOLBAR STYLES ============== -->
+    <style name="ToolbarStyle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">?android:attr/actionBarSize</item>
+        <item name="android:background">@color/toolbarBackground</item>
+        <item name="android:elevation">4dp</item>
+    </style>
+
+    <style name="ToolbarStyle.Dark">
+        <item name="android:background">@color/toolbarBackground_dark</item>
+    </style>
+
+    <!-- ============== TEXT STYLES ============== -->
+    <style name="TextAppearance.Title">
+        <item name="android:textSize">18sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="TextAppearance.Subtitle">
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="TextAppearance.Body">
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="TextAppearance.Caption">
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <!-- ============== BUTTON STYLES ============== -->
+    <style name="PlayerButton">
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:background">@android:color/transparent</item>
+        <item name="android:scaleType">centerInside</item>
+        <item name="android:padding">8dp</item>
+    </style>
+
+    <style name="PlayerButton.Large">
+        <item name="android:layout_width">56dp</item>
+        <item name="android:layout_height">56dp</item>
+    </style>
+
+    <!-- ============== DIALOG THEME ============== -->
+    <style name="DialogTheme" parent="android:Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">@color/colorAccent</item>
+    </style>
+
+    <style name="DialogTheme.Dark" parent="android:Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">@color/colorAccent_dark</item>
+    </style>
+
+</resources>

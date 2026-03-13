@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Playlist detail item - video in playlist with reorder buttons -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp"
+    android:gravity="center_vertical"
+    android:background="?android:attr/selectableItemBackground">
+
+    <!-- Video thumbnail -->
+    <ImageView
+        android:id="@+id/imgThumbnail"
+        android:layout_width="80dp"
+        android:layout_height="45dp"
+        android:scaleType="centerCrop"
+        android:src="@drawable/ic_video_placeholder"
+        android:background="#FFE0E0E0"
+        android:contentDescription="Video thumbnail" />
+
+    <!-- Video info -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="4dp">
+
+        <TextView
+            android:id="@+id/tvVideoName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvDuration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- Move up -->
+    <ImageButton
+        android:id="@+id/btnMoveUp"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Move Up"
+        android:src="@drawable/ic_arrow_up"
+        android:scaleType="centerInside" />
+
+    <!-- Move down -->
+    <ImageButton
+        android:id="@+id/btnMoveDown"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Move Down"
+        android:src="@drawable/ic_arrow_down"
+        android:scaleType="centerInside" />
+
+    <!-- Remove -->
+    <ImageButton
+        android:id="@+id/btnRemove"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/remove_video"
+        android:src="@drawable/ic_delete"
+        android:scaleType="centerInside" />
+
+</LinearLayout>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light Theme Colors -->
+    <color name="colorPrimary">#FF1976D2</color>
+    <color name="colorPrimaryDark">#FF1565C0</color>
+    <color name="colorAccent">#FFFF6D00</color>
+
+    <color name="colorBackground">#FFFAFAFA</color>
+    <color name="colorSurface">#FFFFFFFF</color>
+    <color name="colorTextPrimary">#DD000000</color>
+    <color name="colorTextSecondary">#8A000000</color>
+    <color name="colorDivider">#1F000000</color>
+
+    <!-- Dark Theme Colors -->
+    <color name="colorPrimaryDark_dark">#FF90CAF9</color>
+    <color name="colorPrimary_dark">#FF42A5F5</color>
+    <color name="colorAccent_dark">#FFFFAB40</color>
+
+    <color name="colorBackground_dark">#FF121212</color>
+    <color name="colorSurface_dark">#FF1E1E1E</color>
+    <color name="colorTextPrimary_dark">#DEFFFFFF</color>
+    <color name="colorTextSecondary_dark">#8AFFFFFF</color>
+    <color name="colorDivider_dark">#1FFFFFFF</color>
+
+    <!-- Player Colors -->
+    <color name="playerBackground">#FF000000</color>
+    <color name="playerControlBg">#99000000</color>
+    <color name="playerControlText">#FFFFFFFF</color>
+    <color name="seekBarProgress">#FFFF6D00</color>
+    <color name="seekBarThumb">#FFFF6D00</color>
+    <color name="seekBarBackground">#55FFFFFF</color>
+
+    <!-- Gesture Overlay Colors -->
+    <color name="gestureOverlayBg">#AA000000</color>
+    <color name="gestureOverlayText">#FFFFFFFF</color>
+
+    <!-- Toolbar -->
+    <color name="toolbarBackground">#FF1976D2</color>
+    <color name="toolbarText">#FFFFFFFF</color>
+    <color name="toolbarBackground_dark">#FF1E1E1E</color>
+
+    <!-- Selection -->
+    <color name="itemSelected">#331976D2</color>
+    <color name="itemSelected_dark">#3390CAF9</color>
+
+    <!-- Ripple -->
+    <color name="rippleColor">#331976D2</color>
+    <color name="rippleColor_dark">#3390CAF9</color>
+
+    <color name="white">#FFFFFFFF</color>
+    <color name="black">#FF000000</color>
+    <color name="transparent">#00000000</color>
+</resources>
