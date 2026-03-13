@@ -13,12 +13,12 @@ import java.util.Map;
 
 /**
  * SQLite database helper for managing watch history, favorites, playlists,
- * playlist-video associations, bookmarks, and notes.
+ * playlist-video associations, bookmarks, notes, and custom online videos.
  */
 public class VideoDBHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "video_player.db";
-    private static final int DATABASE_VERSION = 3;
+    private static final int DATABASE_VERSION = 4;
 
     // ==================== Watch History Table ====================
     public static final String TABLE_HISTORY = "watch_history";
@@ -65,6 +65,14 @@ public class VideoDBHelper extends SQLiteOpenHelper {
     public static final String NOTE_POSITION = "position_ms";
     public static final String NOTE_CONTENT = "content";
     public static final String NOTE_CREATED = "created_date";
+
+    // ==================== Online Videos Table ====================
+    public static final String TABLE_ONLINE_VIDEOS = "online_videos";
+    public static final String ONLINE_VIDEO_ID = "_id";
+    public static final String ONLINE_VIDEO_TITLE = "title";
+    public static final String ONLINE_VIDEO_URL = "url";
+    public static final String ONLINE_VIDEO_DESCRIPTION = "description";
+    public static final String ONLINE_VIDEO_CREATED = "created_date";
 
     // SQL to create tables
     private static final String CREATE_HISTORY_TABLE =
@@ -121,6 +129,15 @@ public class VideoDBHelper extends SQLiteOpenHelper {
                     NOTE_CREATED + " INTEGER DEFAULT 0" +
                     ");";
 
+    private static final String CREATE_ONLINE_VIDEOS_TABLE =
+            "CREATE TABLE " + TABLE_ONLINE_VIDEOS + " (" +
+                    ONLINE_VIDEO_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                    ONLINE_VIDEO_TITLE + " TEXT NOT NULL, " +
+                    ONLINE_VIDEO_URL + " TEXT NOT NULL UNIQUE, " +
+                    ONLINE_VIDEO_DESCRIPTION + " TEXT, " +
+                    ONLINE_VIDEO_CREATED + " INTEGER DEFAULT 0" +
+                    ");";
+
     private static VideoDBHelper sInstance;
 
     /**
@@ -145,6 +162,7 @@ public class VideoDBHelper extends SQLiteOpenHelper {
         db.execSQL(CREATE_FAVORITES_TABLE);
         db.execSQL(CREATE_BOOKMARKS_TABLE);
         db.execSQL(CREATE_NOTES_TABLE);
+        db.execSQL(CREATE_ONLINE_VIDEOS_TABLE);
     }
 
     @Override
@@ -155,6 +173,7 @@ public class VideoDBHelper extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_BOOKMARKS);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_NOTES);
         db.execSQL("DROP TABLE IF EXISTS " + TABLE_HISTORY);
+        db.execSQL("DROP TABLE IF EXISTS " + TABLE_ONLINE_VIDEOS);
         onCreate(db);
     }
 
@@ -720,6 +739,102 @@ public class VideoDBHelper extends SQLiteOpenHelper {
             if (cursor != null) cursor.close();
         }
         return -1;
+    }
+
+    // ==================== Online Video Methods ====================
+
+    public long addOnlineVideo(String title, String url, String description) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(ONLINE_VIDEO_TITLE, title);
+        values.put(ONLINE_VIDEO_URL, url);
+        values.put(ONLINE_VIDEO_DESCRIPTION, description);
+        values.put(ONLINE_VIDEO_CREATED, System.currentTimeMillis());
+        return db.insertWithOnConflict(TABLE_ONLINE_VIDEOS, null, values, SQLiteDatabase.CONFLICT_IGNORE);
+    }
+
+    public boolean updateOnlineVideo(long id, String title, String url, String description) {
+        SQLiteDatabase db = getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(ONLINE_VIDEO_TITLE, title);
+        values.put(ONLINE_VIDEO_URL, url);
+        values.put(ONLINE_VIDEO_DESCRIPTION, description);
+        int rows = db.update(TABLE_ONLINE_VIDEOS, values,
+                ONLINE_VIDEO_ID + " = ?",
+                new String[]{String.valueOf(id)});
+        return rows > 0;
+    }
+
+    public void deleteOnlineVideo(long id) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.delete(TABLE_ONLINE_VIDEOS,
+                ONLINE_VIDEO_ID + " = ?",
+                new String[]{String.valueOf(id)});
+    }
+
+    public boolean hasOnlineVideoUrl(String url) {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = null;
+        try {
+            cursor = db.query(TABLE_ONLINE_VIDEOS,
+                    new String[]{ONLINE_VIDEO_ID},
+                    ONLINE_VIDEO_URL + " = ?",
+                    new String[]{url},
+                    null, null, null);
+            return cursor != null && cursor.moveToFirst();
+        } finally {
+            if (cursor != null) cursor.close();
+        }
+    }
+
+    public boolean hasOnlineVideoUrl(String url, long excludeId) {
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = null;
+        try {
+            cursor = db.query(TABLE_ONLINE_VIDEOS,
+                    new String[]{ONLINE_VIDEO_ID},
+                    ONLINE_VIDEO_URL + " = ? AND " + ONLINE_VIDEO_ID + " != ?",
+                    new String[]{url, String.valueOf(excludeId)},
+                    null, null, null);
+            return cursor != null && cursor.moveToFirst();
+        } finally {
+            if (cursor != null) cursor.close();
+        }
+    }
+
+    public List<OnlineVideoItem> getAllOnlineVideos() {
+        List<OnlineVideoItem> result = new ArrayList<>();
+        SQLiteDatabase db = getReadableDatabase();
+        Cursor cursor = null;
+        try {
+            cursor = db.query(TABLE_ONLINE_VIDEOS,
+                    new String[]{ONLINE_VIDEO_ID, ONLINE_VIDEO_TITLE, ONLINE_VIDEO_URL,
+                            ONLINE_VIDEO_DESCRIPTION, ONLINE_VIDEO_CREATED},
+                    null, null, null, null,
+                    ONLINE_VIDEO_CREATED + " DESC");
+
+            if (cursor != null && cursor.moveToFirst()) {
+                int idCol = cursor.getColumnIndexOrThrow(ONLINE_VIDEO_ID);
+                int titleCol = cursor.getColumnIndexOrThrow(ONLINE_VIDEO_TITLE);
+                int urlCol = cursor.getColumnIndexOrThrow(ONLINE_VIDEO_URL);
+                int descriptionCol = cursor.getColumnIndexOrThrow(ONLINE_VIDEO_DESCRIPTION);
+                int createdCol = cursor.getColumnIndexOrThrow(ONLINE_VIDEO_CREATED);
+
+                do {
+                    result.add(new OnlineVideoItem(
+                            cursor.getLong(idCol),
+                            cursor.getString(titleCol),
+                            cursor.getString(urlCol),
+                            cursor.getString(descriptionCol),
+                            true,
+                            cursor.getLong(createdCol)
+                    ));
+                } while (cursor.moveToNext());
+            }
+        } finally {
+            if (cursor != null) cursor.close();
+        }
+        return result;
     }
 
     // ==================== Model Classes ====================

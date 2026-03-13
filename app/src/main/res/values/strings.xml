@@ -147,4 +147,19 @@
     <string name="watch_online_samples">Watch Online Samples</string>
     <string name="online_video_info_label">Source</string>
     <string name="online_video_local_features_disabled">Bookmarks, notes, and local history are disabled for online demo videos.</string>
+<string name="online_videos">Online Videos</string>
+    <string name="add_url">Add URL</string>
+    <string name="online_videos_hint">Play public HTTPS video links. Sample videos are provided below, and you can also add your own direct video URL.</string>
+    <string name="no_online_videos">No online videos available yet</string>
+    <string name="sample_label">Sample</string>
+    <string name="custom_url_label">Custom URL</string>
+    <string name="video_url">Video URL</string>
+    <string name="url_required">URL is required</string>
+    <string name="only_https_direct_links_supported">Only HTTPS direct video links are supported</string>
+    <string name="url_already_added">This URL has already been added</string>
+    <string name="unsupported_direct_video_link">This link is not a supported direct video URL</string>
+    <string name="custom_online_video">Custom Online Video</string>
+    <string name="edit">Edit</string>
+    <string name="edit_url">Edit URL</string>
+    <string name="added_by_you">Added by you</string>
 </resources>

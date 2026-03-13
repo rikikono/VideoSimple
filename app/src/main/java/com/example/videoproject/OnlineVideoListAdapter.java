@@ -32,7 +32,7 @@ public class OnlineVideoListAdapter extends BaseAdapter {
 
     @Override
     public long getItemId(int position) {
-        return position;
+        return items.get(position).getId();
     }
 
     @Override
@@ -43,6 +43,7 @@ public class OnlineVideoListAdapter extends BaseAdapter {
             convertView = inflater.inflate(R.layout.item_online_video, parent, false);
             holder = new ViewHolder();
             holder.thumbnail = convertView.findViewById(R.id.imgOnlineThumbnail);
+            holder.sourceLabel = convertView.findViewById(R.id.tvOnlineSourceLabel);
             holder.title = convertView.findViewById(R.id.tvOnlineTitle);
             holder.description = convertView.findViewById(R.id.tvOnlineDescription);
             convertView.setTag(holder);
@@ -52,6 +53,9 @@ public class OnlineVideoListAdapter extends BaseAdapter {
 
         OnlineVideoItem item = items.get(position);
         holder.thumbnail.setImageResource(R.drawable.ic_video_placeholder);
+        holder.sourceLabel.setText(item.isUserAdded()
+                ? R.string.custom_url_label
+                : R.string.sample_label);
         holder.title.setText(item.getTitle());
         holder.description.setText(item.getDescription());
 
@@ -60,6 +64,7 @@ public class OnlineVideoListAdapter extends BaseAdapter {
 
     private static class ViewHolder {
         ImageView thumbnail;
+        TextView sourceLabel;
         TextView title;
         TextView description;
     }
