@@ -390,6 +390,7 @@ public class MainActivity extends Activity {
         }
 
         popup.getMenu().add(0, 5, 4, getString(R.string.open_gallery));
+        popup.getMenu().add(0, 6, 5, getString(R.string.watch_online_samples));
 
         popup.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
             @Override
@@ -422,6 +423,9 @@ public class MainActivity extends Activity {
                         return true;
                     case 5:
                         startActivity(new Intent(MainActivity.this, ImageGalleryActivity.class));
+                        return true;
+case 6:
+                        startActivity(new Intent(MainActivity.this, OnlineVideoListActivity.class));
                         return true;
                 }
                 return false;

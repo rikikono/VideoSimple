@@ -141,4 +141,10 @@
     <string name="delete_note">Delete Note</string>
     <string name="go_to_note">Go to Note</string>
     <string name="note_hint">Enter note content</string>
+<string name="online_demo_videos">Online Demo Videos</string>
+    <string name="online_demo_videos_hint">Small demo list of public HTTPS MP4 videos. This is a showcase feature and is separate from your local library.</string>
+    <string name="online_video_thumbnail">Online video thumbnail</string>
+    <string name="watch_online_samples">Watch Online Samples</string>
+    <string name="online_video_info_label">Source</string>
+    <string name="online_video_local_features_disabled">Bookmarks, notes, and local history are disabled for online demo videos.</string>
 </resources>
