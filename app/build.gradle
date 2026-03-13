@@ -28,4 +28,5 @@ android {
 
 // No external dependencies - pure Android SDK only
 dependencies {
+implementation 'androidx.core:core:1.12.0'
 }

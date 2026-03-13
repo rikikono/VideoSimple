@@ -6,6 +6,7 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -21,6 +22,9 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.content.FileProvider;
+
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -427,6 +431,9 @@ public class MainActivity extends Activity {
         if (itemId == R.id.menu_video_info) {
             showVideoInfoDialog(video);
             return true;
+        } else if (itemId == R.id.menu_video_share) {
+            shareVideo(video);
+            return true;
         } else if (itemId == R.id.menu_add_to_playlist) {
             showAddToPlaylistDialog(video);
             return true;
@@ -491,6 +498,29 @@ public class MainActivity extends Activity {
                 })
                 .setNegativeButton(R.string.cancel, null)
                 .show();
+    }
+
+    private void shareVideo(VideoItem video) {
+        File videoFile = new File(video.getPath());
+        if (!videoFile.exists()) {
+            Toast.makeText(this, R.string.error_playing_video, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Uri videoUri = FileProvider.getUriForFile(
+                this,
+                getPackageName() + ".fileprovider",
+                videoFile
+        );
+
+        Intent shareIntent = new Intent(Intent.ACTION_SEND);
+        shareIntent.setType(video.getMimeType() != null ? video.getMimeType() : "video/*");
+        shareIntent.putExtra(Intent.EXTRA_STREAM, videoUri);
+        shareIntent.putExtra(Intent.EXTRA_SUBJECT, video.getTitle());
+        shareIntent.putExtra(Intent.EXTRA_TEXT, video.getTitle());
+        shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+        startActivity(Intent.createChooser(shareIntent, getString(R.string.share_video)));
     }
 
     // ==================== Navigation ====================

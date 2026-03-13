@@ -95,6 +95,8 @@
     <string name="rename">Rename</string>
     <string name="remove">Remove</string>
     <string name="create">Create</string>
+<string name="share_video">Share Video</string>
+    <string name="add_to_playlist">Add to Playlist</string>
 
     <!-- Errors -->
     <string name="error_playing_video">Error playing video</string>

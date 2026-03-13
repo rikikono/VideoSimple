@@ -43,6 +43,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
 
     // Media and Surface
     private MediaPlayer mediaPlayer;
+private View playerRoot;
     private SurfaceView surfaceView;
     private SurfaceHolder surfaceHolder;
 
@@ -157,6 +158,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     }
 
     private void initViews() {
+playerRoot = findViewById(R.id.playerRoot);
         surfaceView = findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.addCallback(this);
@@ -350,6 +352,11 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     private void setupGestures() {
         gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
 
+                        @Override
+            public boolean onDown(MotionEvent e) {
+                return true;
+            }
+
             @Override
             public boolean onSingleTapConfirmed(MotionEvent e) {
                 if (isLocked) {
@@ -407,7 +414,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
             }
         });
 
-        surfaceView.setOnTouchListener(new View.OnTouchListener() {
+        playerRoot.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) {
