@@ -7,6 +7,7 @@ import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.view.GestureDetector;
@@ -29,7 +30,7 @@ import java.util.ArrayList;
 
 /**
  * Video Player Activity handling media playback, SurfaceView, gestures (brightness/volume/seek),
- * sleep timer, and screen orientation.
+ * sleep timer, screen orientation, playback speed and quick seek controls.
  */
 public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callback,
         MediaPlayer.OnPreparedListener, MediaPlayer.OnCompletionListener, MediaPlayer.OnErrorListener,
@@ -61,11 +62,14 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     private ImageButton btnUnlock;
     private ImageButton btnSleepTimer;
     private ImageButton btnVideoInfo;
+    private ImageButton btnRewind;
+    private ImageButton btnForward;
 
     private TextView tvCurrentTime;
     private TextView tvTotalTime;
     private TextView tvVideoTitle;
     private TextView tvSleepTimer;
+    private TextView btnSpeed;
     private SeekBar seekBar;
 
     // Gesture Overlay UI
@@ -96,6 +100,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     private boolean isFullscreen = false;
     private boolean isPrepared = false;
     private boolean isSurfaceCreated = false;
+    private float currentPlaybackSpeed = 1.0f;
 
     // Gesture and Hardware Control
     private GestureDetector gestureDetector;
@@ -106,7 +111,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     private long seekStartPos;
 
     // Handlers and Runnables
-    private Handler handler = new Handler();
+    private final Handler handler = new Handler();
     private Runnable updateProgressRunnable;
     private Runnable hideControlsRunnable;
     private Runnable hideGesturesRunnable;
@@ -171,11 +176,14 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         btnUnlock = findViewById(R.id.btnUnlock);
         btnSleepTimer = findViewById(R.id.btnSleepTimer);
         btnVideoInfo = findViewById(R.id.btnVideoInfo);
+        btnRewind = findViewById(R.id.btnRewind);
+        btnForward = findViewById(R.id.btnForward);
 
         tvCurrentTime = findViewById(R.id.tvCurrentTime);
         tvTotalTime = findViewById(R.id.tvTotalTime);
         tvVideoTitle = findViewById(R.id.tvVideoTitle);
         tvSleepTimer = findViewById(R.id.tvSleepTimer);
+        btnSpeed = findViewById(R.id.btnSpeed);
         seekBar = findViewById(R.id.seekBar);
 
         // Gesture overlays
@@ -194,7 +202,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         doubleTapLeft = findViewById(R.id.doubleTapLeft);
         doubleTapRight = findViewById(R.id.doubleTapRight);
 
-        // Initial UI state update based on orientation
+        updateSpeedButtonText();
         updateFullscreenButtonIcon();
     }
 
@@ -259,6 +267,31 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
             @Override
             public void onClick(View v) {
                 showVideoInfo();
+            }
+        });
+
+        btnRewind.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!isPrepared) return;
+                seekBy(-SEEK_SKIP_TIME);
+                resetHideControlsTimer();
+            }
+        });
+
+        btnForward.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!isPrepared) return;
+                seekBy(SEEK_SKIP_TIME);
+                resetHideControlsTimer();
+            }
+        });
+
+        btnSpeed.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showSpeedDialog();
             }
         });
 
@@ -385,8 +418,6 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
 
                     // Apply seek if we were seeking
                     if (seekOverlay.getVisibility() == View.VISIBLE && isPrepared) {
-                        // The text view contains format "00:00:00", we need to parse it or store the target
-                        // Better to parse from tvSeekPosition
                         String[] parts = tvSeekPosition.getText().toString().split(":");
                         long targetMs = 0;
                         if (parts.length == 3) {
@@ -473,9 +504,9 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
 
         float width = getResources().getDisplayMetrics().widthPixels;
         long duration = mediaPlayer.getDuration();
-        
+
         // Seek up to 5 minutes based on screen width swipe
-        long maxSeekChange = 5 * 60 * 1000; 
+        long maxSeekChange = 5 * 60 * 1000;
         long change = (long) ((deltaX / width) * maxSeekChange);
 
         long targetPos = seekStartPos + change;
@@ -484,7 +515,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         // Update UI
         seekOverlay.setVisibility(View.VISIBLE);
         tvSeekPosition.setText(VideoUtils.formatDuration(targetPos));
-        
+
         int offsetSeconds = (int) (change / 1000);
         String offsetStr = (offsetSeconds > 0 ? "+" : "") + offsetSeconds + " sec";
         tvSeekOffset.setText(offsetStr);
@@ -500,9 +531,61 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     private void showDoubleTapAnimation(boolean left) {
         View overlay = left ? doubleTapLeft : doubleTapRight;
         overlay.setVisibility(View.VISIBLE);
-        
+
         handler.removeCallbacks(hideGesturesRunnable);
         handler.postDelayed(hideGesturesRunnable, 800);
+    }
+
+    private void showSpeedDialog() {
+        final String[] speedLabels = {"0.5x", "0.75x", "1.0x", "1.25x", "1.5x", "2.0x"};
+        final float[] speedValues = {0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f};
+
+        int checkedIndex = 2;
+        for (int i = 0; i < speedValues.length; i++) {
+            if (Math.abs(speedValues[i] - currentPlaybackSpeed) < 0.01f) {
+                checkedIndex = i;
+                break;
+            }
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.playback_speed)
+                .setSingleChoiceItems(speedLabels, checkedIndex, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        applyPlaybackSpeed(speedValues[which], speedLabels[which]);
+                        dialog.dismiss();
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+
+        resetHideControlsTimer();
+    }
+
+    private void applyPlaybackSpeed(float speed, String speedLabel) {
+        currentPlaybackSpeed = speed;
+        updateSpeedButtonText();
+
+        if (mediaPlayer == null || !isPrepared) {
+            return;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            mediaPlayer.setPlaybackParams(mediaPlayer.getPlaybackParams().setSpeed(speed));
+            Toast.makeText(this, getString(R.string.speed_changed, speedLabel), Toast.LENGTH_SHORT).show();
+        } else {
+            currentPlaybackSpeed = 1.0f;
+            updateSpeedButtonText();
+            Toast.makeText(this, R.string.speed_not_supported, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void updateSpeedButtonText() {
+        if (btnSpeed != null) {
+            btnSpeed.setText(String.format(java.util.Locale.US, "%.2fx", currentPlaybackSpeed)
+                    .replace(".00x", ".0x"));
+        }
     }
 
     // ==================== Media Player Lifecycle ====================
@@ -545,7 +628,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     @Override
     public void onPrepared(MediaPlayer mp) {
         isPrepared = true;
-        
+
         // Setup UI limits
         int duration = mp.getDuration();
         seekBar.setMax(duration);
@@ -564,12 +647,17 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
             }
         }
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && currentPlaybackSpeed != 1.0f) {
+            mp.setPlaybackParams(mp.getPlaybackParams().setSpeed(currentPlaybackSpeed));
+        }
+        updateSpeedButtonText();
+
         mp.start();
         btnPlayPause.setImageResource(R.drawable.ic_pause);
-        
+
         // Start updating progress
         handler.post(updateProgressRunnable);
-        
+
         // Auto-hide controls
         resetHideControlsTimer();
     }
@@ -579,10 +667,10 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         btnPlayPause.setImageResource(R.drawable.ic_play);
         handler.removeCallbacks(updateProgressRunnable);
         showControls();
-        
+
         // Save completion state (0 means finished)
         saveWatchPosition(0);
-        
+
         // Auto play next if available
         if (currentIndex < videoPaths.size() - 1) {
             playNext();
@@ -732,7 +820,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
             lockOverlay.setVisibility(View.VISIBLE);
             hideSystemUI();
             handler.removeCallbacks(hideControlsRunnable);
-            
+
             // Hide lock button after a few seconds
             handler.postDelayed(new Runnable() {
                 @Override
@@ -786,7 +874,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         updateFullscreenButtonIcon();
-        
+
         // Re-adjust surface size for new orientation
         if (isPrepared && mediaPlayer != null) {
             // Need a slight delay to let the layout settle before calculating new bounds
@@ -838,7 +926,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
 
     private void setSleepTimer(int minutes) {
         handler.removeCallbacks(sleepTimerRunnable);
-        
+
         if (minutes == 0) {
             tvSleepTimer.setVisibility(View.GONE);
             Toast.makeText(this, "Sleep timer off", Toast.LENGTH_SHORT).show();
@@ -865,7 +953,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
                 }
             }
         };
-        
+
         handler.postDelayed(sleepTimerRunnable, 60000); // Start after 1 min
         Toast.makeText(this, "Sleep timer set for " + minutes + " minutes", Toast.LENGTH_SHORT).show();
     }
@@ -892,7 +980,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
                 .setMessage(info)
                 .setPositiveButton(R.string.ok, null)
                 .show();
-                
+
         resetHideControlsTimer();
     }
 
@@ -902,7 +990,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         if (videoIds != null && currentIndex < videoIds.length && isPrepared) {
             long videoId = videoIds[currentIndex];
             long duration = mediaPlayer.getDuration();
-            
+
             VideoDBHelper db = VideoDBHelper.getInstance(this);
             db.saveWatchHistory(videoId, position, duration);
         }
@@ -961,13 +1049,13 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
             toggleLockVisibility();
             return;
         }
-        
+
         // If in landscape mode, back button should exit landscape first
         if (isFullscreen) {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
             return;
         }
-        
+
         super.onBackPressed();
     }
 }

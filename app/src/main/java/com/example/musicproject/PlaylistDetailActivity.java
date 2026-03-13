@@ -27,6 +27,7 @@ public class PlaylistDetailActivity extends Activity {
     private TextView tvEmpty;
     private TextView tvTitle; // maps to tvPlaylistTitle in layout
     private ImageButton btnBack;
+    private ImageButton btnPlayAll;
     private ImageButton btnAdd;
     private LinearLayout toolbar;
 
@@ -57,7 +58,7 @@ public class PlaylistDetailActivity extends Activity {
         initViews();
         setupListeners();
         updateToolbarColors();
-        
+
         tvTitle.setText(playlistName);
     }
 
@@ -72,6 +73,7 @@ public class PlaylistDetailActivity extends Activity {
         tvEmpty = findViewById(R.id.tvEmpty);
         tvTitle = findViewById(R.id.tvPlaylistTitle);
         btnBack = findViewById(R.id.btnBack);
+        btnPlayAll = findViewById(R.id.btnPlayAll);
         btnAdd = findViewById(R.id.btnAddVideos);
         toolbar = findViewById(R.id.toolbar);
 
@@ -91,6 +93,15 @@ public class PlaylistDetailActivity extends Activity {
             @Override
             public void onClick(View v) {
                 finish();
+            }
+        });
+
+        btnPlayAll.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (videoList != null && !videoList.isEmpty()) {
+                    openVideoPlayer(0);
+                }
             }
         });
 
@@ -114,13 +125,13 @@ public class PlaylistDetailActivity extends Activity {
     private void loadVideos() {
         // Load the relationship objects from DB
         List<VideoDBHelper.PlaylistVideo> mappings = dbHelper.getVideosInPlaylist(playlistId);
-        
+
         // Scan media store to get full metadata for the mapped IDs
         List<VideoItem> allVideos = VideoUtils.getAllVideos(this);
-        
+
         videoList = new ArrayList<>();
         mappingIds = new ArrayList<>();
-        
+
         for (VideoDBHelper.PlaylistVideo mapping : mappings) {
             // Find the video in MediaStore
             VideoItem matchedVideo = null;
@@ -130,7 +141,7 @@ public class PlaylistDetailActivity extends Activity {
                     break;
                 }
             }
-            
+
             // If found in MediaStore (meaning it hasn't been deleted from disk)
             if (matchedVideo != null) {
                 videoList.add(matchedVideo);
@@ -186,7 +197,7 @@ public class PlaylistDetailActivity extends Activity {
         ArrayList<String> paths = new ArrayList<>();
         ArrayList<String> titles = new ArrayList<>();
         long[] ids = new long[videoList.size()];
-        
+
         for (int i = 0; i < videoList.size(); i++) {
             VideoItem v = videoList.get(i);
             paths.add(v.getPath());
@@ -217,8 +228,12 @@ public class PlaylistDetailActivity extends Activity {
         final long mappingId = mappingIds.get(info.position);
         final VideoItem video = videoList.get(info.position);
 
-        switch (item.getItemId()) {
-            case R.id.menu_remove:
+        int action = -1;
+        if (item.getItemId() == R.id.menu_remove) {
+            action = 0;
+        }
+        switch (action) {
+            case 0:
                 new AlertDialog.Builder(this)
                         .setTitle(R.string.remove)
                         .setMessage("Remove '" + video.getTitle() + "' from playlist?")

@@ -423,13 +423,13 @@ public class MainActivity extends Activity {
 
         VideoItem video = videoList.get(info.position);
 
-        switch (item.getItemId()) {
-            case R.id.menu_video_info:
-                showVideoInfoDialog(video);
-                return true;
-            case R.id.menu_add_to_playlist:
-                showAddToPlaylistDialog(video);
-                return true;
+        int itemId = item.getItemId();
+        if (itemId == R.id.menu_video_info) {
+            showVideoInfoDialog(video);
+            return true;
+        } else if (itemId == R.id.menu_add_to_playlist) {
+            showAddToPlaylistDialog(video);
+            return true;
         }
         return super.onContextItemSelected(item);
     }

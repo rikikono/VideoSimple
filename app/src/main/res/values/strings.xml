@@ -34,8 +34,8 @@
     <string name="lock">Lock</string>
     <string name="unlock">Unlock</string>
     <string name="sleep_timer">Sleep Timer</string>
-    <string name="time_format">%02d:%02d:%02d</string>
-    <string name="time_format_short">%02d:%02d</string>
+    <string name="time_format">%1$02d:%2$02d:%3$02d</string>
+    <string name="time_format_short">%1$02d:%2$02d</string>
 
     <!-- Resume Dialog -->
     <string name="resume_title">Resume Playback</string>
@@ -98,4 +98,10 @@
 
     <!-- Errors -->
     <string name="error_playing_video">Error playing video</string>
+<string name="rewind_10_seconds">Rewind 10 seconds</string>
+    <string name="forward_10_seconds">Forward 10 seconds</string>
+    <string name="playback_speed">Playback speed</string>
+    <string name="speed_normal">1.0x</string>
+    <string name="speed_not_supported">Playback speed is not supported on this Android version</string>
+    <string name="speed_changed">Speed: %1$s</string>
 </resources>

@@ -188,11 +188,17 @@ public class PlaylistActivity extends Activity {
 
         final VideoDBHelper.PlaylistItem playlist = playlists.get(info.position);
 
-        switch (item.getItemId()) {
-            case R.id.menu_rename:
+        int action = -1;
+        if (item.getItemId() == R.id.menu_rename) {
+            action = 0;
+        } else if (item.getItemId() == R.id.menu_delete) {
+            action = 1;
+        }
+        switch (action) {
+            case 0:
                 showRenameDialog(playlist);
                 return true;
-            case R.id.menu_delete:
+            case 1:
                 new AlertDialog.Builder(this)
                         .setTitle(R.string.delete)
                         .setMessage("Delete playlist '" + playlist.name + "'?")
