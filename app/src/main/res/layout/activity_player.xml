@@ -409,6 +409,26 @@
                     android:src="@drawable/ic_forward"
                     android:scaleType="centerInside"
                     android:padding="8dp" />
+<ImageButton
+                    android:id="@+id/btnBookmark"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="8dp"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/bookmark"
+                    android:src="@drawable/ic_add"
+                    android:scaleType="centerInside"
+                    android:padding="8dp" />
+<ImageButton
+                    android:id="@+id/btnNote"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="8dp"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/notes"
+                    android:src="@drawable/ic_edit"
+                    android:scaleType="centerInside"
+                    android:padding="8dp" />
                 <View
                     android:layout_width="0dp"
                     android:layout_height="0dp"

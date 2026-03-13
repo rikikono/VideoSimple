@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Main Activity - Video browser that scans and displays all videos on the device.
@@ -38,6 +39,11 @@ import java.util.List;
 public class MainActivity extends Activity {
 
     private static final int PERMISSION_REQUEST_CODE = 100;
+
+    // View mode state
+    private static final int VIEW_MODE_ALL_VIDEOS = 0;
+    private static final int VIEW_MODE_CONTINUE_WATCHING = 1;
+    private static final int VIEW_MODE_FAVORITES = 2;
 
     // UI components
     private LinearLayout rootLayout;
@@ -50,16 +56,16 @@ public class MainActivity extends Activity {
     private ImageButton btnMore;
 
     // Data
-    private List<VideoItem> videoList = new ArrayList<>();
+    private final List<VideoItem> videoList = new ArrayList<>();
     private VideoListAdapter adapter;
 
     // Sorting state
     private int currentSortType = 0; // 0=date, 1=name, 2=size
     private boolean sortAscending = false; // false = descending
+    private int currentViewMode = VIEW_MODE_ALL_VIDEOS;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        // Apply theme before setContentView
         ThemeHelper.applyTheme(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
@@ -68,7 +74,6 @@ public class MainActivity extends Activity {
         setupListeners();
         updateToolbarColors();
 
-        // Check permissions and load videos
         if (hasStoragePermission()) {
             loadVideos();
         } else {
@@ -79,7 +84,6 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Refresh list when returning from other activities
         if (hasStoragePermission() && adapter != null) {
             loadVideos();
         }
@@ -98,11 +102,9 @@ public class MainActivity extends Activity {
         btnPlaylists = findViewById(R.id.btnPlaylists);
         btnMore = findViewById(R.id.btnMore);
 
-        // Initialize adapter
         adapter = new VideoListAdapter(this, videoList);
         listVideos.setAdapter(adapter);
 
-        // Register context menu for long press
         registerForContextMenu(listVideos);
     }
 
@@ -121,7 +123,6 @@ public class MainActivity extends Activity {
      * Setup click listeners for all interactive elements.
      */
     private void setupListeners() {
-        // Video item click - open player
         listVideos.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
@@ -129,7 +130,6 @@ public class MainActivity extends Activity {
             }
         });
 
-        // Sort button
         btnSort.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -137,7 +137,6 @@ public class MainActivity extends Activity {
             }
         });
 
-        // Playlists button
         btnPlaylists.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -146,7 +145,6 @@ public class MainActivity extends Activity {
             }
         });
 
-        // More button
         btnMore.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -157,26 +155,17 @@ public class MainActivity extends Activity {
 
     // ==================== Permission Handling ====================
 
-    /**
-     * Check if the app has the required storage permission.
-     */
     private boolean hasStoragePermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+: READ_MEDIA_VIDEO
             return checkSelfPermission(Manifest.permission.READ_MEDIA_VIDEO)
                     == PackageManager.PERMISSION_GRANTED;
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // Android 6-12: READ_EXTERNAL_STORAGE
             return checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
                     == PackageManager.PERMISSION_GRANTED;
         }
-        // Pre-Marshmallow: permission granted at install time
         return true;
     }
 
-    /**
-     * Request the appropriate storage permission.
-     */
     private void requestStoragePermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             String permission;
@@ -186,7 +175,6 @@ public class MainActivity extends Activity {
                 permission = Manifest.permission.READ_EXTERNAL_STORAGE;
             }
 
-            // Check if we should show rationale
             if (shouldShowRequestPermissionRationale(permission)) {
                 showPermissionRationale(permission);
             } else {
@@ -195,9 +183,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    /**
-     * Show a rationale dialog explaining why permission is needed.
-     */
     private void showPermissionRationale(final String permission) {
         new AlertDialog.Builder(this)
                 .setTitle(R.string.permission_title)
@@ -227,7 +212,6 @@ public class MainActivity extends Activity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 loadVideos();
             } else {
-                // Permission denied
                 new AlertDialog.Builder(this)
                         .setTitle(R.string.permission_denied_title)
                         .setMessage(R.string.permission_denied_message)
@@ -245,9 +229,6 @@ public class MainActivity extends Activity {
 
     // ==================== Video Loading ====================
 
-    /**
-     * Load videos from MediaStore asynchronously.
-     */
     private void loadVideos() {
         progressBar.setVisibility(View.VISIBLE);
         listVideos.setVisibility(View.GONE);
@@ -262,8 +243,37 @@ public class MainActivity extends Activity {
             @Override
             protected void onPostExecute(List<VideoItem> result) {
                 progressBar.setVisibility(View.GONE);
+
+                List<VideoItem> displayList = new ArrayList<>(result);
+                VideoDBHelper dbHelper = VideoDBHelper.getInstance(MainActivity.this);
+
+                if (currentViewMode == VIEW_MODE_CONTINUE_WATCHING) {
+                    Map<Long, Long> watchMap = dbHelper.getWatchPositionMap();
+                    List<VideoItem> filtered = new ArrayList<>();
+                    for (VideoItem item : result) {
+                        Long savedPosition = watchMap.get(item.getId());
+                        if (savedPosition != null && savedPosition > 0) {
+                            filtered.add(item);
+                        }
+                    }
+                    displayList = filtered;
+                    tvEmpty.setText(R.string.no_continue_watching);
+                } else if (currentViewMode == VIEW_MODE_FAVORITES) {
+                    List<Long> favoriteIds = dbHelper.getFavoriteVideoIds();
+                    List<VideoItem> filtered = new ArrayList<>();
+                    for (VideoItem item : result) {
+                        if (favoriteIds.contains(item.getId())) {
+                            filtered.add(item);
+                        }
+                    }
+                    displayList = filtered;
+                    tvEmpty.setText(R.string.no_favorites);
+                } else {
+                    tvEmpty.setText(R.string.no_videos_found);
+                }
+
                 videoList.clear();
-                videoList.addAll(result);
+                videoList.addAll(displayList);
 
                 if (videoList.isEmpty()) {
                     showEmptyState();
@@ -276,9 +286,6 @@ public class MainActivity extends Activity {
         }.execute();
     }
 
-    /**
-     * Show empty state when no videos found.
-     */
     private void showEmptyState() {
         listVideos.setVisibility(View.GONE);
         tvEmpty.setVisibility(View.VISIBLE);
@@ -287,16 +294,14 @@ public class MainActivity extends Activity {
 
     // ==================== Sorting ====================
 
-    /**
-     * Show sort popup menu.
-     */
     private void showSortMenu(View anchor) {
         PopupMenu popup = new PopupMenu(this, anchor);
         popup.getMenu().add(0, 1, 0, getString(R.string.sort_by_name));
         popup.getMenu().add(0, 2, 1, getString(R.string.sort_by_date));
         popup.getMenu().add(0, 3, 2, getString(R.string.sort_by_size));
-        popup.getMenu().add(0, 4, 3, sortAscending ?
-                getString(R.string.sort_descending) : getString(R.string.sort_ascending));
+        popup.getMenu().add(0, 4, 3, sortAscending
+                ? getString(R.string.sort_descending)
+                : getString(R.string.sort_ascending));
 
         popup.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
             @Override
@@ -322,14 +327,11 @@ public class MainActivity extends Activity {
         popup.show();
     }
 
-    /**
-     * Sort the video list based on current sort settings.
-     */
     private void sortVideos() {
         Comparator<VideoItem> comparator;
 
         switch (currentSortType) {
-            case 1: // Name
+            case 1:
                 comparator = new Comparator<VideoItem>() {
                     @Override
                     public int compare(VideoItem a, VideoItem b) {
@@ -339,7 +341,7 @@ public class MainActivity extends Activity {
                     }
                 };
                 break;
-            case 2: // Size
+            case 2:
                 comparator = new Comparator<VideoItem>() {
                     @Override
                     public int compare(VideoItem a, VideoItem b) {
@@ -347,7 +349,7 @@ public class MainActivity extends Activity {
                     }
                 };
                 break;
-            default: // Date (0)
+            default:
                 comparator = new Comparator<VideoItem>() {
                     @Override
                     public int compare(VideoItem a, VideoItem b) {
@@ -368,14 +370,26 @@ public class MainActivity extends Activity {
 
     // ==================== More Menu ====================
 
-    /**
-     * Show more options popup menu (dark mode, refresh).
-     */
     private void showMoreMenu(View anchor) {
         PopupMenu popup = new PopupMenu(this, anchor);
-        popup.getMenu().add(0, 1, 0, ThemeHelper.isDarkMode(this) ?
-                getString(R.string.dark_mode_off) : getString(R.string.dark_mode_on));
+        popup.getMenu().add(0, 1, 0, ThemeHelper.isDarkMode(this)
+                ? getString(R.string.dark_mode_off)
+                : getString(R.string.dark_mode_on));
         popup.getMenu().add(0, 2, 1, getString(R.string.refresh));
+
+        if (currentViewMode == VIEW_MODE_CONTINUE_WATCHING) {
+            popup.getMenu().add(0, 3, 2, getString(R.string.show_all_videos));
+        } else {
+            popup.getMenu().add(0, 3, 2, getString(R.string.show_continue_watching));
+        }
+
+        if (currentViewMode == VIEW_MODE_FAVORITES) {
+            popup.getMenu().add(0, 4, 3, getString(R.string.show_all_videos));
+        } else {
+            popup.getMenu().add(0, 4, 3, getString(R.string.show_favorites));
+        }
+
+        popup.getMenu().add(0, 5, 4, getString(R.string.open_gallery));
 
         popup.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
             @Override
@@ -390,6 +404,25 @@ public class MainActivity extends Activity {
                             loadVideos();
                         }
                         return true;
+                    case 3:
+                        currentViewMode = currentViewMode == VIEW_MODE_CONTINUE_WATCHING
+                                ? VIEW_MODE_ALL_VIDEOS
+                                : VIEW_MODE_CONTINUE_WATCHING;
+                        if (hasStoragePermission()) {
+                            loadVideos();
+                        }
+                        return true;
+                    case 4:
+                        currentViewMode = currentViewMode == VIEW_MODE_FAVORITES
+                                ? VIEW_MODE_ALL_VIDEOS
+                                : VIEW_MODE_FAVORITES;
+                        if (hasStoragePermission()) {
+                            loadVideos();
+                        }
+                        return true;
+                    case 5:
+                        startActivity(new Intent(MainActivity.this, ImageGalleryActivity.class));
+                        return true;
                 }
                 return false;
             }
@@ -397,15 +430,11 @@ public class MainActivity extends Activity {
         popup.show();
     }
 
-    /**
-     * Toggle dark mode and recreate the activity.
-     */
     private void toggleDarkMode() {
         boolean newState = ThemeHelper.toggleDarkMode(this);
         Toast.makeText(this,
                 newState ? R.string.dark_mode_on : R.string.dark_mode_off,
                 Toast.LENGTH_SHORT).show();
-        // Recreate activity to apply new theme
         recreate();
     }
 
@@ -413,7 +442,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onCreateContextMenu(ContextMenu menu, View v,
-                                     ContextMenu.ContextMenuInfo menuInfo) {
+                                    ContextMenu.ContextMenuInfo menuInfo) {
         super.onCreateContextMenu(menu, v, menuInfo);
         getMenuInflater().inflate(R.menu.menu_video_context, menu);
     }
@@ -434,6 +463,9 @@ public class MainActivity extends Activity {
         } else if (itemId == R.id.menu_video_share) {
             shareVideo(video);
             return true;
+        } else if (itemId == R.id.menu_toggle_favorite) {
+            toggleFavorite(video);
+            return true;
         } else if (itemId == R.id.menu_add_to_playlist) {
             showAddToPlaylistDialog(video);
             return true;
@@ -443,9 +475,6 @@ public class MainActivity extends Activity {
 
     // ==================== Video Info Dialog ====================
 
-    /**
-     * Show dialog with detailed video information.
-     */
     private void showVideoInfoDialog(VideoItem video) {
         StringBuilder info = new StringBuilder();
         info.append(getString(R.string.info_resolution)).append(": ")
@@ -468,9 +497,6 @@ public class MainActivity extends Activity {
                 .show();
     }
 
-    /**
-     * Show dialog to choose a playlist to add the video to.
-     */
     private void showAddToPlaylistDialog(final VideoItem video) {
         final VideoDBHelper dbHelper = VideoDBHelper.getInstance(this);
         final List<VideoDBHelper.PlaylistItem> playlists = dbHelper.getAllPlaylists();
@@ -523,16 +549,26 @@ public class MainActivity extends Activity {
         startActivity(Intent.createChooser(shareIntent, getString(R.string.share_video)));
     }
 
+    private void toggleFavorite(VideoItem video) {
+        VideoDBHelper dbHelper = VideoDBHelper.getInstance(this);
+        if (dbHelper.isFavorite(video.getId())) {
+            dbHelper.removeFavorite(video.getId());
+            Toast.makeText(this, R.string.removed_from_favorites, Toast.LENGTH_SHORT).show();
+        } else {
+            dbHelper.addFavorite(video.getId(), video.getPath());
+            Toast.makeText(this, R.string.added_to_favorites, Toast.LENGTH_SHORT).show();
+        }
+
+        if (currentViewMode == VIEW_MODE_FAVORITES && hasStoragePermission()) {
+            loadVideos();
+        }
+    }
+
     // ==================== Navigation ====================
 
-    /**
-     * Open the video player with the selected video.
-     * Passes the entire video list for next/previous navigation.
-     */
     private void openVideoPlayer(int position) {
         Intent intent = new Intent(this, VideoPlayerActivity.class);
 
-        // Pass video paths as an array for next/previous support
         ArrayList<String> paths = new ArrayList<>();
         ArrayList<String> titles = new ArrayList<>();
         long[] ids = new long[videoList.size()];

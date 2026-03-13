@@ -17,6 +17,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -27,27 +28,22 @@ import android.widget.Toast;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
-/**
- * Video Player Activity handling media playback, SurfaceView, gestures (brightness/volume/seek),
- * sleep timer, screen orientation, playback speed and quick seek controls.
- */
 public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callback,
         MediaPlayer.OnPreparedListener, MediaPlayer.OnCompletionListener, MediaPlayer.OnErrorListener,
         MediaPlayer.OnVideoSizeChangedListener {
 
-    private static final String TAG = "VideoPlayerActivity";
-    private static final int HIDE_CONTROLS_DELAY = 3000; // 3 seconds
-    private static final int UPDATE_PROGRESS_DELAY = 1000; // 1 second
-    private static final int SEEK_SKIP_TIME = 10000; // 10 seconds skip on double tap
+    private static final int HIDE_CONTROLS_DELAY = 3000;
+    private static final int UPDATE_PROGRESS_DELAY = 1000;
+    private static final int SEEK_SKIP_TIME = 10000;
+    private static final int RESUME_PROMPT_THRESHOLD_MS = 5000;
 
-    // Media and Surface
     private MediaPlayer mediaPlayer;
-private View playerRoot;
+    private View playerRoot;
     private SurfaceView surfaceView;
     private SurfaceHolder surfaceHolder;
 
-    // UI Components
     private RelativeLayout controlsOverlay;
     private LinearLayout topBar;
     private LinearLayout bottomBar;
@@ -65,6 +61,8 @@ private View playerRoot;
     private ImageButton btnVideoInfo;
     private ImageButton btnRewind;
     private ImageButton btnForward;
+    private ImageButton btnBookmark;
+    private ImageButton btnNote;
 
     private TextView tvCurrentTime;
     private TextView tvTotalTime;
@@ -73,7 +71,6 @@ private View playerRoot;
     private TextView btnSpeed;
     private SeekBar seekBar;
 
-    // Gesture Overlay UI
     private LinearLayout brightnessOverlay;
     private ProgressBar brightnessProgress;
     private TextView tvBrightnessValue;
@@ -89,43 +86,38 @@ private View playerRoot;
     private View doubleTapLeft;
     private View doubleTapRight;
 
-    // Data
     private ArrayList<String> videoPaths;
     private ArrayList<String> videoTitles;
     private long[] videoIds;
     private int currentIndex = 0;
 
-    // State
     private boolean isControlsVisible = true;
     private boolean isLocked = false;
     private boolean isFullscreen = false;
     private boolean isPrepared = false;
     private boolean isSurfaceCreated = false;
+    private boolean hasHandledResumePrompt = false;
     private float currentPlaybackSpeed = 1.0f;
 
-    // Gesture and Hardware Control
     private GestureDetector gestureDetector;
     private AudioManager audioManager;
     private int maxVolume;
     private float currentBrightness = -1.0f;
-    private int startVolume;
-    private long seekStartPos;
+    private int startVolume = -1;
+    private long seekStartPos = -1;
 
-    // Handlers and Runnables
     private final Handler handler = new Handler();
     private Runnable updateProgressRunnable;
     private Runnable hideControlsRunnable;
     private Runnable hideGesturesRunnable;
     private Runnable sleepTimerRunnable;
 
-    // Timers
-    private int sleepTimerMinutes = 0; // 0 means off
+    private int sleepTimerMinutes = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Set fullscreen flag before content view
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
@@ -133,11 +125,9 @@ private View playerRoot;
 
         setContentView(R.layout.activity_player);
 
-        // Initialize Audio Manager
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
         maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
 
-        // Get Intent Data
         videoPaths = getIntent().getStringArrayListExtra("video_paths");
         videoTitles = getIntent().getStringArrayListExtra("video_titles");
         videoIds = getIntent().getLongArrayExtra("video_ids");
@@ -152,13 +142,11 @@ private View playerRoot;
         initViews();
         setupListeners();
         setupGestures();
-
-        // Resume playback position if available
         resumePlaybackPosition();
     }
 
     private void initViews() {
-playerRoot = findViewById(R.id.playerRoot);
+        playerRoot = findViewById(R.id.playerRoot);
         surfaceView = findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.addCallback(this);
@@ -180,6 +168,8 @@ playerRoot = findViewById(R.id.playerRoot);
         btnVideoInfo = findViewById(R.id.btnVideoInfo);
         btnRewind = findViewById(R.id.btnRewind);
         btnForward = findViewById(R.id.btnForward);
+        btnBookmark = findViewById(R.id.btnBookmark);
+        btnNote = findViewById(R.id.btnNote);
 
         tvCurrentTime = findViewById(R.id.tvCurrentTime);
         tvTotalTime = findViewById(R.id.tvTotalTime);
@@ -188,7 +178,6 @@ playerRoot = findViewById(R.id.playerRoot);
         btnSpeed = findViewById(R.id.btnSpeed);
         seekBar = findViewById(R.id.seekBar);
 
-        // Gesture overlays
         brightnessOverlay = findViewById(R.id.brightnessOverlay);
         brightnessProgress = findViewById(R.id.brightnessProgress);
         tvBrightnessValue = findViewById(R.id.tvBrightnessValue);
@@ -297,6 +286,20 @@ playerRoot = findViewById(R.id.playerRoot);
             }
         });
 
+        btnBookmark.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showBookmarkOptions();
+            }
+        });
+
+        btnNote.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showNoteOptions();
+            }
+        });
+
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -312,14 +315,13 @@ playerRoot = findViewById(R.id.playerRoot);
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-                if (isPrepared) {
+                if (isPrepared && mediaPlayer != null) {
                     mediaPlayer.seekTo(seekBar.getProgress());
                 }
                 resetHideControlsTimer();
             }
         });
 
-        // Runnables
         updateProgressRunnable = new Runnable() {
             @Override
             public void run() {
@@ -351,8 +353,7 @@ playerRoot = findViewById(R.id.playerRoot);
 
     private void setupGestures() {
         gestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
-
-                        @Override
+            @Override
             public boolean onDown(MotionEvent e) {
                 return true;
             }
@@ -373,11 +374,9 @@ playerRoot = findViewById(R.id.playerRoot);
 
                 int screenWidth = getResources().getDisplayMetrics().widthPixels;
                 if (e.getX() < screenWidth / 2f) {
-                    // Double tap left - Rewind
                     seekBy(-SEEK_SKIP_TIME);
                     showDoubleTapAnimation(true);
                 } else {
-                    // Double tap right - Forward
                     seekBy(SEEK_SKIP_TIME);
                     showDoubleTapAnimation(false);
                 }
@@ -391,21 +390,16 @@ playerRoot = findViewById(R.id.playerRoot);
                 float deltaX = e2.getX() - e1.getX();
                 float deltaY = e2.getY() - e1.getY();
 
-                // Determine dominant scroll direction
                 if (Math.abs(deltaX) > Math.abs(deltaY)) {
-                    // Horizontal scroll - Seeking
-                    if (Math.abs(deltaX) > 50) { // Threshold
+                    if (Math.abs(deltaX) > 50) {
                         handleSeekScroll(deltaX);
                     }
                 } else {
-                    // Vertical scroll - Brightness or Volume
                     int screenWidth = getResources().getDisplayMetrics().widthPixels;
                     if (Math.abs(deltaY) > 50) {
                         if (e1.getX() < screenWidth / 2f) {
-                            // Left side - Brightness
                             handleBrightnessScroll(deltaY);
                         } else {
-                            // Right side - Volume
                             handleVolumeScroll(deltaY);
                         }
                     }
@@ -418,22 +412,20 @@ playerRoot = findViewById(R.id.playerRoot);
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 if (event.getAction() == MotionEvent.ACTION_UP) {
-                    // Reset gesture start states
                     seekStartPos = -1;
                     startVolume = -1;
                     currentBrightness = -1.0f;
 
-                    // Apply seek if we were seeking
-                    if (seekOverlay.getVisibility() == View.VISIBLE && isPrepared) {
+                    if (seekOverlay.getVisibility() == View.VISIBLE && isPrepared && mediaPlayer != null) {
                         String[] parts = tvSeekPosition.getText().toString().split(":");
                         long targetMs = 0;
                         if (parts.length == 3) {
-                            targetMs = (Long.parseLong(parts[0]) * 3600 +
-                                    Long.parseLong(parts[1]) * 60 +
-                                    Long.parseLong(parts[2])) * 1000;
+                            targetMs = (Long.parseLong(parts[0]) * 3600L
+                                    + Long.parseLong(parts[1]) * 60L
+                                    + Long.parseLong(parts[2])) * 1000L;
                         } else if (parts.length == 2) {
-                            targetMs = (Long.parseLong(parts[0]) * 60 +
-                                    Long.parseLong(parts[1])) * 1000;
+                            targetMs = (Long.parseLong(parts[0]) * 60L
+                                    + Long.parseLong(parts[1])) * 1000L;
                         }
 
                         if (targetMs >= 0 && targetMs <= mediaPlayer.getDuration()) {
@@ -441,7 +433,6 @@ playerRoot = findViewById(R.id.playerRoot);
                         }
                     }
 
-                    // Hide overlays after a short delay
                     handler.removeCallbacks(hideGesturesRunnable);
                     handler.postDelayed(hideGesturesRunnable, 1000);
                 }
@@ -450,20 +441,17 @@ playerRoot = findViewById(R.id.playerRoot);
         });
     }
 
-    // ==================== Gesture Handling ====================
-
     private void handleBrightnessScroll(float deltaY) {
         if (currentBrightness == -1.0f) {
             Window window = getWindow();
             currentBrightness = window.getAttributes().screenBrightness;
             if (currentBrightness < 0) {
-                currentBrightness = 0.5f; // Default if unknown
+                currentBrightness = 0.5f;
             }
         }
 
-        // Calculate change based on screen height
         float height = getResources().getDisplayMetrics().heightPixels;
-        float change = -(deltaY / height) * 2f; // Multiplier for sensitivity
+        float change = -(deltaY / height) * 2f;
 
         float newBrightness = currentBrightness + change;
         newBrightness = Math.max(0.01f, Math.min(1.0f, newBrightness));
@@ -475,7 +463,6 @@ playerRoot = findViewById(R.id.playerRoot);
 
         currentBrightness = newBrightness;
 
-        // Update UI
         int percent = (int) (newBrightness * 100);
         brightnessOverlay.setVisibility(View.VISIBLE);
         brightnessProgress.setProgress(percent);
@@ -496,7 +483,6 @@ playerRoot = findViewById(R.id.playerRoot);
         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, newVolume, 0);
         startVolume = newVolume;
 
-        // Update UI
         int percent = (int) (((float) newVolume / maxVolume) * 100);
         volumeOverlay.setVisibility(View.VISIBLE);
         volumeProgress.setProgress(percent);
@@ -504,6 +490,8 @@ playerRoot = findViewById(R.id.playerRoot);
     }
 
     private void handleSeekScroll(float deltaX) {
+        if (mediaPlayer == null) return;
+
         if (seekStartPos == -1) {
             seekStartPos = mediaPlayer.getCurrentPosition();
             handler.removeCallbacks(updateProgressRunnable);
@@ -511,15 +499,12 @@ playerRoot = findViewById(R.id.playerRoot);
 
         float width = getResources().getDisplayMetrics().widthPixels;
         long duration = mediaPlayer.getDuration();
-
-        // Seek up to 5 minutes based on screen width swipe
-        long maxSeekChange = 5 * 60 * 1000;
+        long maxSeekChange = 5 * 60 * 1000L;
         long change = (long) ((deltaX / width) * maxSeekChange);
 
         long targetPos = seekStartPos + change;
         targetPos = Math.max(0, Math.min(duration, targetPos));
 
-        // Update UI
         seekOverlay.setVisibility(View.VISIBLE);
         tvSeekPosition.setText(VideoUtils.formatDuration(targetPos));
 
@@ -529,6 +514,7 @@ playerRoot = findViewById(R.id.playerRoot);
     }
 
     private void seekBy(int ms) {
+        if (mediaPlayer == null) return;
         int target = mediaPlayer.getCurrentPosition() + ms;
         target = Math.max(0, Math.min(mediaPlayer.getDuration(), target));
         mediaPlayer.seekTo(target);
@@ -538,7 +524,6 @@ playerRoot = findViewById(R.id.playerRoot);
     private void showDoubleTapAnimation(boolean left) {
         View overlay = left ? doubleTapLeft : doubleTapRight;
         overlay.setVisibility(View.VISIBLE);
-
         handler.removeCallbacks(hideGesturesRunnable);
         handler.postDelayed(hideGesturesRunnable, 800);
     }
@@ -588,14 +573,270 @@ playerRoot = findViewById(R.id.playerRoot);
         }
     }
 
+    private void showBookmarkOptions() {
+        if (videoIds == null || currentIndex >= videoIds.length) {
+            Toast.makeText(this, R.string.error_playing_video, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final String[] options = {
+                getString(R.string.bookmark),
+                getString(R.string.view_bookmarks)
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.bookmark)
+                .setItems(options, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        if (which == 0) {
+                            addCurrentBookmark();
+                        } else {
+                            showBookmarksDialog();
+                        }
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+
+        resetHideControlsTimer();
+    }
+
+    private void addCurrentBookmark() {
+        if (!isPrepared || mediaPlayer == null || videoIds == null || currentIndex >= videoIds.length) {
+            return;
+        }
+
+        long videoId = videoIds[currentIndex];
+        long positionMs = mediaPlayer.getCurrentPosition();
+        String label = VideoUtils.formatDuration(positionMs);
+
+        VideoDBHelper db = VideoDBHelper.getInstance(this);
+        db.addBookmark(videoId, positionMs, label);
+
+        Toast.makeText(this, R.string.bookmark_added, Toast.LENGTH_SHORT).show();
+        resetHideControlsTimer();
+    }
+
+    private void showBookmarksDialog() {
+        if (videoIds == null || currentIndex >= videoIds.length) {
+            Toast.makeText(this, R.string.error_playing_video, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        long videoId = videoIds[currentIndex];
+        VideoDBHelper db = VideoDBHelper.getInstance(this);
+        final List<VideoDBHelper.BookmarkItem> bookmarks = db.getBookmarksForVideo(videoId);
+
+        if (bookmarks.isEmpty()) {
+            Toast.makeText(this, R.string.no_bookmarks, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String[] items = new String[bookmarks.size()];
+        for (int i = 0; i < bookmarks.size(); i++) {
+            VideoDBHelper.BookmarkItem item = bookmarks.get(i);
+            String time = VideoUtils.formatDuration(item.positionMs);
+            String label = item.label != null && !item.label.trim().isEmpty() ? item.label : time;
+            items[i] = time.equals(label) ? time : time + " - " + label;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.view_bookmarks)
+                .setItems(items, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        showBookmarkActionDialog(bookmarks.get(which));
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+
+        resetHideControlsTimer();
+    }
+
+    private void showBookmarkActionDialog(final VideoDBHelper.BookmarkItem bookmark) {
+        final String[] actions = {
+                getString(R.string.go_to_bookmark),
+                getString(R.string.delete_bookmark)
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle(VideoUtils.formatDuration(bookmark.positionMs))
+                .setItems(actions, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        VideoDBHelper db = VideoDBHelper.getInstance(VideoPlayerActivity.this);
+
+                        if (which == 0) {
+                            if (isPrepared && mediaPlayer != null) {
+                                mediaPlayer.seekTo((int) bookmark.positionMs);
+                                updateProgress();
+                                Toast.makeText(VideoPlayerActivity.this,
+                                        R.string.go_to_bookmark,
+                                        Toast.LENGTH_SHORT).show();
+                            }
+                        } else {
+                            db.deleteBookmark(bookmark.id);
+                            Toast.makeText(VideoPlayerActivity.this,
+                                    R.string.delete_bookmark,
+                                    Toast.LENGTH_SHORT).show();
+                            showBookmarksDialog();
+                        }
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+
+        resetHideControlsTimer();
+    }
+
+    private void showNoteOptions() {
+        if (videoIds == null || currentIndex >= videoIds.length) {
+            Toast.makeText(this, R.string.error_playing_video, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final String[] options = {
+                getString(R.string.add_note),
+                getString(R.string.view_notes)
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.notes)
+                .setItems(options, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        if (which == 0) {
+                            showAddNoteDialog();
+                        } else {
+                            showNotesDialog();
+                        }
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+
+        resetHideControlsTimer();
+    }
+
+    private void showAddNoteDialog() {
+        if (!isPrepared || mediaPlayer == null || videoIds == null || currentIndex >= videoIds.length) {
+            return;
+        }
+
+        final EditText input = new EditText(this);
+        input.setHint(R.string.note_hint);
+        input.setMinLines(3);
+        input.setMaxLines(5);
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.add_note)
+                .setView(input)
+                .setPositiveButton(R.string.add_note, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        String content = input.getText().toString().trim();
+                        if (content.isEmpty()) {
+                            return;
+                        }
+
+                        long videoId = videoIds[currentIndex];
+                        long positionMs = mediaPlayer.getCurrentPosition();
+                        VideoDBHelper db = VideoDBHelper.getInstance(VideoPlayerActivity.this);
+                        db.addNote(videoId, positionMs, content);
+
+                        Toast.makeText(VideoPlayerActivity.this,
+                                R.string.note_saved,
+                                Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+
+        resetHideControlsTimer();
+    }
+
+    private void showNotesDialog() {
+        if (videoIds == null || currentIndex >= videoIds.length) {
+            Toast.makeText(this, R.string.error_playing_video, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        long videoId = videoIds[currentIndex];
+        VideoDBHelper db = VideoDBHelper.getInstance(this);
+        final List<VideoDBHelper.NoteItem> notes = db.getNotesForVideo(videoId);
+
+        if (notes.isEmpty()) {
+            Toast.makeText(this, R.string.no_notes, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String[] items = new String[notes.size()];
+        for (int i = 0; i < notes.size(); i++) {
+            VideoDBHelper.NoteItem item = notes.get(i);
+            String time = VideoUtils.formatDuration(item.positionMs);
+            String content = item.content == null ? "" : item.content.trim();
+            items[i] = time + " - " + content;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.view_notes)
+                .setItems(items, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        showNoteActionDialog(notes.get(which));
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+
+        resetHideControlsTimer();
+    }
+
+    private void showNoteActionDialog(final VideoDBHelper.NoteItem note) {
+        final String[] actions = {
+                getString(R.string.go_to_note),
+                getString(R.string.delete_note)
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle(VideoUtils.formatDuration(note.positionMs))
+                .setMessage(note.content)
+                .setItems(actions, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        VideoDBHelper db = VideoDBHelper.getInstance(VideoPlayerActivity.this);
+
+                        if (which == 0) {
+                            if (isPrepared && mediaPlayer != null) {
+                                mediaPlayer.seekTo((int) note.positionMs);
+                                updateProgress();
+                                Toast.makeText(VideoPlayerActivity.this,
+                                        R.string.go_to_note,
+                                        Toast.LENGTH_SHORT).show();
+                            }
+                        } else {
+                            db.deleteNote(note.id);
+                            Toast.makeText(VideoPlayerActivity.this,
+                                    R.string.delete_note,
+                                    Toast.LENGTH_SHORT).show();
+                            showNotesDialog();
+                        }
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+
+        resetHideControlsTimer();
+    }
+
     private void updateSpeedButtonText() {
         if (btnSpeed != null) {
             btnSpeed.setText(String.format(java.util.Locale.US, "%.2fx", currentPlaybackSpeed)
                     .replace(".00x", ".0x"));
         }
     }
-
-    // ==================== Media Player Lifecycle ====================
 
     private void initMediaPlayer() {
         if (mediaPlayer == null) {
@@ -615,9 +856,12 @@ playerRoot = findViewById(R.id.playerRoot);
             finish();
             return;
         }
+        hasHandledResumePrompt = false;
 
         String path = videoPaths.get(currentIndex);
-        String title = videoTitles.get(currentIndex);
+        String title = videoTitles != null && currentIndex < videoTitles.size()
+                ? videoTitles.get(currentIndex)
+                : "Unknown Video";
         tvVideoTitle.setText(title != null ? title : "Unknown Video");
 
         try {
@@ -636,21 +880,21 @@ playerRoot = findViewById(R.id.playerRoot);
     public void onPrepared(MediaPlayer mp) {
         isPrepared = true;
 
-        // Setup UI limits
         int duration = mp.getDuration();
         seekBar.setMax(duration);
         tvTotalTime.setText(VideoUtils.formatDuration(duration));
 
-        // Adjust video size
         adjustAspectRatio(mp.getVideoWidth(), mp.getVideoHeight());
 
-        // Restore playback position if we have an ID
         if (videoIds != null && currentIndex < videoIds.length) {
             long videoId = videoIds[currentIndex];
             VideoDBHelper db = VideoDBHelper.getInstance(this);
             long savedPosition = db.getWatchPosition(videoId);
-            if (savedPosition > 0 && savedPosition < duration) {
-                mp.seekTo((int) savedPosition);
+            if (savedPosition >= RESUME_PROMPT_THRESHOLD_MS
+                    && savedPosition < duration - RESUME_PROMPT_THRESHOLD_MS
+                    && !hasHandledResumePrompt) {
+                hasHandledResumePrompt = true;
+                showResumePrompt(savedPosition);
             }
         }
 
@@ -661,11 +905,7 @@ playerRoot = findViewById(R.id.playerRoot);
 
         mp.start();
         btnPlayPause.setImageResource(R.drawable.ic_pause);
-
-        // Start updating progress
         handler.post(updateProgressRunnable);
-
-        // Auto-hide controls
         resetHideControlsTimer();
     }
 
@@ -674,11 +914,8 @@ playerRoot = findViewById(R.id.playerRoot);
         btnPlayPause.setImageResource(R.drawable.ic_play);
         handler.removeCallbacks(updateProgressRunnable);
         showControls();
-
-        // Save completion state (0 means finished)
         saveWatchPosition(0);
 
-        // Auto play next if available
         if (currentIndex < videoPaths.size() - 1) {
             playNext();
         }
@@ -695,8 +932,6 @@ playerRoot = findViewById(R.id.playerRoot);
         adjustAspectRatio(width, height);
     }
 
-    // ==================== Surface Lifecycle ====================
-
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         isSurfaceCreated = true;
@@ -709,7 +944,6 @@ playerRoot = findViewById(R.id.playerRoot);
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-        // Handle changes if needed
     }
 
     @Override
@@ -720,16 +954,14 @@ playerRoot = findViewById(R.id.playerRoot);
         }
     }
 
-    // ==================== Playback Controls ====================
-
     private void togglePlayPause() {
-        if (!isPrepared) return;
+        if (!isPrepared || mediaPlayer == null) return;
 
         if (mediaPlayer.isPlaying()) {
             mediaPlayer.pause();
             btnPlayPause.setImageResource(R.drawable.ic_play);
             handler.removeCallbacks(updateProgressRunnable);
-            showControls(); // Keep controls visible when paused
+            showControls();
             handler.removeCallbacks(hideControlsRunnable);
         } else {
             mediaPlayer.start();
@@ -741,7 +973,9 @@ playerRoot = findViewById(R.id.playerRoot);
 
     private void playNext() {
         if (currentIndex < videoPaths.size() - 1) {
-            saveWatchPosition(mediaPlayer.getCurrentPosition());
+            if (mediaPlayer != null) {
+                saveWatchPosition(mediaPlayer.getCurrentPosition());
+            }
             currentIndex++;
             loadVideo();
         } else {
@@ -751,7 +985,9 @@ playerRoot = findViewById(R.id.playerRoot);
 
     private void playPrevious() {
         if (currentIndex > 0) {
-            saveWatchPosition(mediaPlayer.getCurrentPosition());
+            if (mediaPlayer != null) {
+                saveWatchPosition(mediaPlayer.getCurrentPosition());
+            }
             currentIndex--;
             loadVideo();
         } else {
@@ -789,8 +1025,6 @@ playerRoot = findViewById(R.id.playerRoot);
         surfaceView.setLayoutParams(lp);
     }
 
-    // ==================== UI State Management ====================
-
     private void toggleControls() {
         if (isControlsVisible) {
             hideControls();
@@ -812,7 +1046,7 @@ playerRoot = findViewById(R.id.playerRoot);
         controlsOverlay.setVisibility(View.VISIBLE);
         isControlsVisible = true;
         showSystemUI();
-        updateProgress(); // Ensure progress is fresh when shown
+        updateProgress();
     }
 
     private void resetHideControlsTimer() {
@@ -828,7 +1062,6 @@ playerRoot = findViewById(R.id.playerRoot);
             hideSystemUI();
             handler.removeCallbacks(hideControlsRunnable);
 
-            // Hide lock button after a few seconds
             handler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
@@ -882,9 +1115,7 @@ playerRoot = findViewById(R.id.playerRoot);
         super.onConfigurationChanged(newConfig);
         updateFullscreenButtonIcon();
 
-        // Re-adjust surface size for new orientation
         if (isPrepared && mediaPlayer != null) {
-            // Need a slight delay to let the layout settle before calculating new bounds
             handler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
@@ -913,8 +1144,6 @@ playerRoot = findViewById(R.id.playerRoot);
                         | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
     }
 
-    // ==================== Sleep Timer & Info ====================
-
     private void showSleepTimerDialog() {
         final String[] options = {"Off", "15 Minutes", "30 Minutes", "60 Minutes", "90 Minutes"};
         final int[] values = {0, 15, 30, 60, 90};
@@ -932,7 +1161,9 @@ playerRoot = findViewById(R.id.playerRoot);
     }
 
     private void setSleepTimer(int minutes) {
-        handler.removeCallbacks(sleepTimerRunnable);
+        if (sleepTimerRunnable != null) {
+            handler.removeCallbacks(sleepTimerRunnable);
+        }
 
         if (minutes == 0) {
             tvSleepTimer.setVisibility(View.GONE);
@@ -953,15 +1184,15 @@ playerRoot = findViewById(R.id.playerRoot);
                         mediaPlayer.pause();
                     }
                     tvSleepTimer.setVisibility(View.GONE);
-                    finish(); // Exit player
+                    finish();
                 } else {
                     updateSleepTimerDisplay();
-                    handler.postDelayed(this, 60000); // 1 minute
+                    handler.postDelayed(this, 60000);
                 }
             }
         };
 
-        handler.postDelayed(sleepTimerRunnable, 60000); // Start after 1 min
+        handler.postDelayed(sleepTimerRunnable, 60000);
         Toast.makeText(this, "Sleep timer set for " + minutes + " minutes", Toast.LENGTH_SHORT).show();
     }
 
@@ -970,14 +1201,17 @@ playerRoot = findViewById(R.id.playerRoot);
     }
 
     private void showVideoInfo() {
-        if (!isPrepared) return;
+        if (!isPrepared || mediaPlayer == null) return;
 
         String path = videoPaths.get(currentIndex);
         int width = mediaPlayer.getVideoWidth();
         int height = mediaPlayer.getVideoHeight();
         String duration = VideoUtils.formatDuration(mediaPlayer.getDuration());
+        String title = videoTitles != null && currentIndex < videoTitles.size()
+                ? videoTitles.get(currentIndex)
+                : "Unknown Video";
 
-        String info = "Title: " + videoTitles.get(currentIndex) + "\n\n" +
+        String info = "Title: " + title + "\n\n" +
                 "Path: " + path + "\n\n" +
                 "Resolution: " + width + "x" + height + "\n\n" +
                 "Duration: " + duration;
@@ -991,10 +1225,8 @@ playerRoot = findViewById(R.id.playerRoot);
         resetHideControlsTimer();
     }
 
-    // ==================== Data Persistence ====================
-
     private void saveWatchPosition(int position) {
-        if (videoIds != null && currentIndex < videoIds.length && isPrepared) {
+        if (videoIds != null && currentIndex < videoIds.length && isPrepared && mediaPlayer != null) {
             long videoId = videoIds[currentIndex];
             long duration = mediaPlayer.getDuration();
 
@@ -1003,11 +1235,41 @@ playerRoot = findViewById(R.id.playerRoot);
         }
     }
 
-    private void resumePlaybackPosition() {
-        // Handled in onPrepared since we need duration
+    private void showResumePrompt(final long savedPosition) {
+        if (mediaPlayer == null || !isPrepared) {
+            return;
+        }
+
+        final String formattedTime = VideoUtils.formatDuration(savedPosition);
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.resume_title)
+                .setMessage(getString(R.string.resume_message, formattedTime))
+                .setPositiveButton(R.string.resume, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        if (mediaPlayer != null && isPrepared) {
+                            mediaPlayer.seekTo((int) savedPosition);
+                            updateProgress();
+                        }
+                    }
+                })
+                .setNegativeButton(R.string.start_over, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        if (mediaPlayer != null && isPrepared) {
+                            mediaPlayer.seekTo(0);
+                            updateProgress();
+                            saveWatchPosition(0);
+                        }
+                    }
+                })
+                .setCancelable(true)
+                .show();
     }
 
-    // ==================== Activity Lifecycle ====================
+    private void resumePlaybackPosition() {
+    }
 
     @Override
     protected void onPause() {
@@ -1029,7 +1291,6 @@ playerRoot = findViewById(R.id.playerRoot);
     protected void onResume() {
         super.onResume();
         if (mediaPlayer != null && isPrepared) {
-            // Restore UI state
             updateProgress();
             showControls();
         }
@@ -1057,7 +1318,6 @@ playerRoot = findViewById(R.id.playerRoot);
             return;
         }
 
-        // If in landscape mode, back button should exit landscape first
         if (isFullscreen) {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
             return;
