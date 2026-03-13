@@ -1,4 +1,4 @@
-package com.example.musicproject;
+package com.example.videoproject;
 
 import android.content.ContentResolver;
 import android.content.Context;

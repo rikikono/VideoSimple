@@ -1,4 +1,4 @@
-package com.example.musicproject;
+package com.example.videoproject;
 
 /**
  * Model class representing a video file on the device.

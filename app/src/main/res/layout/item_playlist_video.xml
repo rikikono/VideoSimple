@@ -64,14 +64,4 @@
         android:src="@drawable/ic_arrow_down"
         android:scaleType="centerInside" />
 
-    <!-- Remove -->
-    <ImageButton
-        android:id="@+id/btnRemove"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:contentDescription="@string/remove_video"
-        android:src="@drawable/ic_delete"
-        android:scaleType="centerInside" />
-
 </LinearLayout>

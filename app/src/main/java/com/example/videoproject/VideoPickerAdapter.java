@@ -1,4 +1,4 @@
-package com.example.musicproject;
+package com.example.videoproject;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -8,36 +8,31 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
-import android.widget.ImageButton;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.List;
 
-public class PlaylistVideoAdapter extends BaseAdapter {
+public class VideoPickerAdapter extends BaseAdapter {
 
     private Context context;
     private List<VideoItem> videos;
-    private List<Long> mappingIds;
-    private PlaylistActionCallback callback;
+    private List<Long> existingVideoIds;
+    private List<VideoItem> selectedVideos;
     private LruCache<String, Bitmap> thumbnailCache;
 
-    public interface PlaylistActionCallback {
-        void onMoveUp(int position);
-        void onMoveDown(int position);
-    }
-
-    public PlaylistVideoAdapter(Context context, List<VideoItem> videos, 
-                                List<Long> mappingIds, PlaylistActionCallback callback) {
+    public VideoPickerAdapter(Context context, List<VideoItem> videos) {
         this.context = context;
         this.videos = videos;
-        this.mappingIds = mappingIds;
-        this.callback = callback;
+        this.existingVideoIds = new ArrayList<>();
+        this.selectedVideos = new ArrayList<>();
 
-        // Initialize thumbnail cache
         final int maxMemory = (int) (Runtime.getRuntime().maxMemory() / 1024);
-        final int cacheSize = maxMemory / 8; // Use 1/8th of available memory
+        final int cacheSize = maxMemory / 8;
         thumbnailCache = new LruCache<String, Bitmap>(cacheSize) {
             @Override
             protected int sizeOf(String key, Bitmap bitmap) {
@@ -46,10 +41,13 @@ public class PlaylistVideoAdapter extends BaseAdapter {
         };
     }
 
-    public void updateList(List<VideoItem> newVideos, List<Long> newMappingIds) {
-        this.videos = newVideos;
-        this.mappingIds = newMappingIds;
+    public void setExistingVideoIds(List<Long> ids) {
+        this.existingVideoIds = ids;
         notifyDataSetChanged();
+    }
+
+    public List<VideoItem> getSelectedVideos() {
+        return selectedVideos;
     }
 
     @Override
@@ -64,49 +62,71 @@ public class PlaylistVideoAdapter extends BaseAdapter {
 
     @Override
     public long getItemId(int position) {
-        return mappingIds.get(position);
+        return videos.get(position).getId();
     }
 
     @Override
-    public View getView(final int position, View convertView, ViewGroup parent) {
+    public View getView(int position, View convertView, ViewGroup parent) {
         ViewHolder holder;
 
         if (convertView == null) {
-            convertView = LayoutInflater.from(context).inflate(R.layout.item_playlist_video, parent, false);
+            convertView = LayoutInflater.from(context).inflate(R.layout.item_video_picker, parent, false);
             holder = new ViewHolder();
             holder.imgThumbnail = convertView.findViewById(R.id.imgThumbnail);
             holder.tvTitle = convertView.findViewById(R.id.tvVideoName);
             holder.tvDuration = convertView.findViewById(R.id.tvDuration);
-            holder.btnUp = convertView.findViewById(R.id.btnMoveUp);
-            holder.btnDown = convertView.findViewById(R.id.btnMoveDown);
+            holder.checkbox = convertView.findViewById(R.id.checkBox);
             convertView.setTag(holder);
         } else {
             holder = (ViewHolder) convertView.getTag();
         }
 
-        VideoItem video = videos.get(position);
+        final VideoItem video = videos.get(position);
 
         holder.tvTitle.setText(video.getTitle());
         holder.tvDuration.setText(video.getFormattedDuration());
 
-        // Manage button visibility
-        holder.btnUp.setVisibility(position == 0 ? View.INVISIBLE : View.VISIBLE);
-        holder.btnDown.setVisibility(position == videos.size() - 1 ? View.INVISIBLE : View.VISIBLE);
+        // Check if video is already in playlist
+        boolean isExisting = existingVideoIds.contains(video.getId());
+        
+        // Remove listener temporarily to avoid trigger during view recycling
+        holder.checkbox.setOnCheckedChangeListener(null);
+        
+        if (isExisting) {
+            holder.checkbox.setChecked(true);
+            holder.checkbox.setEnabled(false);
+            holder.tvTitle.setAlpha(0.5f);
+        } else {
+            holder.checkbox.setChecked(selectedVideos.contains(video));
+            holder.checkbox.setEnabled(true);
+            holder.tvTitle.setAlpha(1.0f);
+            
+            holder.checkbox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                @Override
+                public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                    if (isChecked) {
+                        if (!selectedVideos.contains(video)) {
+                            selectedVideos.add(video);
+                        }
+                    } else {
+                        selectedVideos.remove(video);
+                    }
+                }
+            });
+        }
 
-        // Setup click listeners
-        holder.btnUp.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (callback != null) callback.onMoveUp(position);
-            }
-        });
-
-        holder.btnDown.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (callback != null) callback.onMoveDown(position);
-            }
-        });
+        // Entire row click toggles checkbox if it's not disabled
+        if (!isExisting) {
+            convertView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    CheckBox cb = v.findViewById(R.id.checkBox);
+                    cb.setChecked(!cb.isChecked());
+                }
+            });
+        } else {
+            convertView.setOnClickListener(null);
+        }
 
         // Load thumbnail
         loadThumbnail(video.getId(), holder.imgThumbnail);
@@ -121,16 +141,13 @@ public class PlaylistVideoAdapter extends BaseAdapter {
         if (bitmap != null) {
             imageView.setImageBitmap(bitmap);
         } else {
-            // Set placeholder and clear any pending tasks for this image view
             imageView.setImageResource(R.drawable.ic_video_placeholder);
             
-            // Check if there's an existing task for this ImageView
             ThumbnailTask existingTask = (ThumbnailTask) imageView.getTag();
             if (existingTask != null) {
                 existingTask.cancel(true);
             }
 
-            // Create and execute new task
             ThumbnailTask task = new ThumbnailTask(imageView, context, thumbnailCache);
             imageView.setTag(task);
             task.execute(videoId);
@@ -141,10 +158,10 @@ public class PlaylistVideoAdapter extends BaseAdapter {
         ImageView imgThumbnail;
         TextView tvTitle;
         TextView tvDuration;
-        ImageButton btnUp;
-        ImageButton btnDown;
+        CheckBox checkbox;
     }
 
+    // Identical async task to the others, but kept isolated for simplicity
     private static class ThumbnailTask extends AsyncTask<Long, Void, Bitmap> {
         private final WeakReference<ImageView> imageViewReference;
         private final Context context;
@@ -170,10 +187,7 @@ public class PlaylistVideoAdapter extends BaseAdapter {
             }
 
             if (bitmap != null) {
-                // Add to cache
                 cache.put(String.valueOf(videoId), bitmap);
-
-                // Update UI if imageView is still available and the task matches
                 ImageView imageView = imageViewReference.get();
                 if (imageView != null) {
                     ThumbnailTask task = (ThumbnailTask) imageView.getTag();

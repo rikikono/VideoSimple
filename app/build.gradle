@@ -3,11 +3,11 @@ plugins {
 }
 
 android {
-    namespace 'com.example.musicproject'
+    namespace 'com.example.videoproject'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.example.musicproject"
+        applicationId "com.example.videoproject"
         minSdk 21
         targetSdk 34
         versionCode 1
