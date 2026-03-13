@@ -26,6 +26,9 @@ android {
     }
 }
 
+configurations.all {
+    resolutionStrategy.force 'androidx.core:core:1.12.0'
+}
 // No external dependencies - pure Android SDK only
 dependencies {
 implementation 'androidx.core:core:1.12.0'
