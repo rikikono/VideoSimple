@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Simple Video Player</string>
+    <string name="app_name">xem video</string>
 
     <!-- Main Activity -->
     <string name="no_videos_found">No videos found on this device</string>
@@ -34,6 +34,28 @@
     <string name="lock">Lock</string>
     <string name="unlock">Unlock</string>
     <string name="sleep_timer">Sleep Timer</string>
+    <string name="repeat_mode">Repeat mode</string>
+    <string name="repeat_mode_off_short">Repeat</string>
+    <string name="repeat_mode_one_short">Repeat 1</string>
+    <string name="repeat_mode_all_short">Repeat All</string>
+    <string name="repeat_mode_off_label">Repeat Off</string>
+    <string name="repeat_mode_one_label">Repeat One</string>
+    <string name="repeat_mode_all_label">Repeat All</string>
+    <string name="subtitles">Subtitles</string>
+    <string name="subtitle_on_short">CC On</string>
+    <string name="subtitle_off_short">CC Off</string>
+    <string name="subtitle_unavailable_short">CC --</string>
+    <string name="subtitles_on">Subtitles On</string>
+    <string name="subtitles_off">Subtitles Off</string>
+    <string name="subtitles_not_found">No subtitle file (.srt) found next to this video</string>
+    <string name="quality_label">Quality</string>
+    <string name="quality_unknown">--</string>
+    <string name="quality_low">LOW</string>
+    <string name="quality_sd">SD</string>
+    <string name="quality_hd">HD</string>
+    <string name="quality_fhd">FHD</string>
+    <string name="quality_2k">2K</string>
+    <string name="quality_4k">4K</string>
     <string name="time_format">%1$02d:%2$02d:%3$02d</string>
     <string name="time_format_short">%1$02d:%2$02d</string>
 
@@ -80,6 +102,10 @@
     <string name="info_path">File Path</string>
     <string name="info_date_added">Date Added</string>
     <string name="info_mime_type">MIME Type</string>
+    <string name="info_quality">Quality</string>
+    <string name="info_subtitles">Subtitles</string>
+    <string name="info_subtitles_available">Available</string>
+    <string name="info_subtitles_unavailable">Not found</string>
 
     <!-- Gestures -->
     <string name="volume">Volume</string>
@@ -100,6 +126,11 @@
 
     <!-- Errors -->
     <string name="error_playing_video">Error playing video</string>
+    <string name="last_video">Last video</string>
+    <string name="first_video">First video</string>
+    <string name="screen_locked">Screen is locked</string>
+    <string name="sleep_timer_off_message">Sleep timer off</string>
+    <string name="sleep_timer_set_for">Sleep timer set for %1$d minutes</string>
 <string name="rewind_10_seconds">Rewind 10 seconds</string>
     <string name="forward_10_seconds">Forward 10 seconds</string>
     <string name="playback_speed">Playback speed</string>

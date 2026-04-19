@@ -200,6 +200,25 @@
         android:textSize="12sp"
         android:visibility="gone" />
 
+    <TextView
+        android:id="@+id/tvSubtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="88dp"
+        android:background="#99000000"
+        android:gravity="center"
+        android:maxLines="3"
+        android:paddingStart="14dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="8dp"
+        android:textColor="@color/white"
+        android:textSize="16sp"
+        android:visibility="gone" />
+
     <!-- Controls Overlay -->
     <RelativeLayout
         android:id="@+id/controlsOverlay"
@@ -239,6 +258,55 @@
                 android:paddingEnd="8dp"
                 android:textColor="@color/playerControlText"
                 android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/tvQualityBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginEnd="8dp"
+                android:background="@color/gestureOverlayBg"
+                android:gravity="center"
+                android:minWidth="44dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="@string/quality_unknown"
+                android:textColor="@color/playerControlText"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btnRepeat"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginEnd="8dp"
+                android:background="@color/gestureOverlayBg"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:minWidth="58dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="@string/repeat_mode_off_short"
+                android:textColor="@color/playerControlText"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/btnSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_marginEnd="8dp"
+                android:background="@color/gestureOverlayBg"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:minWidth="52dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:text="@string/subtitle_unavailable_short"
+                android:textColor="@color/playerControlText"
+                android:textSize="11sp"
+                android:textStyle="bold" />
 
             <!-- Sleep timer button -->
             <ImageButton

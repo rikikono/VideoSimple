@@ -26,7 +26,11 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,9 +39,12 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         MediaPlayer.OnVideoSizeChangedListener {
 
     private static final int HIDE_CONTROLS_DELAY = 3000;
-    private static final int UPDATE_PROGRESS_DELAY = 1000;
+    private static final int UPDATE_PROGRESS_DELAY = 500;
     private static final int SEEK_SKIP_TIME = 10000;
     private static final int RESUME_PROMPT_THRESHOLD_MS = 5000;
+    private static final int REPEAT_MODE_OFF = 0;
+    private static final int REPEAT_MODE_ONE = 1;
+    private static final int REPEAT_MODE_ALL = 2;
 
     private MediaPlayer mediaPlayer;
     private View playerRoot;
@@ -68,7 +75,11 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     private TextView tvTotalTime;
     private TextView tvVideoTitle;
     private TextView tvSleepTimer;
+    private TextView tvSubtitle;
+    private TextView tvQualityBadge;
     private TextView btnSpeed;
+    private TextView btnRepeat;
+    private TextView btnSubtitle;
     private SeekBar seekBar;
 
     private LinearLayout brightnessOverlay;
@@ -113,6 +124,23 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     private Runnable sleepTimerRunnable;
 
     private int sleepTimerMinutes = 0;
+    private int repeatMode = REPEAT_MODE_OFF;
+    private boolean subtitlesEnabled = false;
+    private boolean subtitleFileAvailable = false;
+    private final List<SubtitleCue> subtitleCues = new ArrayList<>();
+    private int currentSubtitleIndex = -1;
+
+    private static class SubtitleCue {
+        final long startMs;
+        final long endMs;
+        final String text;
+
+        SubtitleCue(long startMs, long endMs, String text) {
+            this.startMs = startMs;
+            this.endMs = endMs;
+            this.text = text;
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -175,7 +203,11 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         tvTotalTime = findViewById(R.id.tvTotalTime);
         tvVideoTitle = findViewById(R.id.tvVideoTitle);
         tvSleepTimer = findViewById(R.id.tvSleepTimer);
+        tvSubtitle = findViewById(R.id.tvSubtitle);
+        tvQualityBadge = findViewById(R.id.tvQualityBadge);
         btnSpeed = findViewById(R.id.btnSpeed);
+        btnRepeat = findViewById(R.id.btnRepeat);
+        btnSubtitle = findViewById(R.id.btnSubtitle);
         seekBar = findViewById(R.id.seekBar);
 
         brightnessOverlay = findViewById(R.id.brightnessOverlay);
@@ -194,6 +226,9 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         doubleTapRight = findViewById(R.id.doubleTapRight);
 
         updateSpeedButtonText();
+        updateRepeatButtonText();
+        updateSubtitleButtonState();
+        updateQualityBadge(0, 0);
         updateFullscreenButtonIcon();
     }
 
@@ -300,6 +335,20 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
             }
         });
 
+        btnRepeat.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                cycleRepeatMode();
+            }
+        });
+
+        btnSubtitle.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                toggleSubtitles();
+            }
+        });
+
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -317,6 +366,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
             public void onStopTrackingTouch(SeekBar seekBar) {
                 if (isPrepared && mediaPlayer != null) {
                     mediaPlayer.seekTo(seekBar.getProgress());
+                    updateProgress();
                 }
                 resetHideControlsTimer();
             }
@@ -838,6 +888,287 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         }
     }
 
+    private void updateRepeatButtonText() {
+        if (btnRepeat == null) {
+            return;
+        }
+
+        switch (repeatMode) {
+            case REPEAT_MODE_ONE:
+                btnRepeat.setText(R.string.repeat_mode_one_short);
+                break;
+            case REPEAT_MODE_ALL:
+                btnRepeat.setText(R.string.repeat_mode_all_short);
+                break;
+            case REPEAT_MODE_OFF:
+            default:
+                btnRepeat.setText(R.string.repeat_mode_off_short);
+                break;
+        }
+    }
+
+    private void cycleRepeatMode() {
+        repeatMode = (repeatMode + 1) % 3;
+        updateRepeatButtonText();
+
+        int messageResId;
+        if (repeatMode == REPEAT_MODE_ONE) {
+            messageResId = R.string.repeat_mode_one_label;
+        } else if (repeatMode == REPEAT_MODE_ALL) {
+            messageResId = R.string.repeat_mode_all_label;
+        } else {
+            messageResId = R.string.repeat_mode_off_label;
+        }
+
+        Toast.makeText(this, messageResId, Toast.LENGTH_SHORT).show();
+        resetHideControlsTimer();
+    }
+
+    private void updateSubtitleButtonState() {
+        if (btnSubtitle == null) {
+            return;
+        }
+
+        if (!subtitleFileAvailable) {
+            btnSubtitle.setText(R.string.subtitle_unavailable_short);
+            btnSubtitle.setAlpha(0.5f);
+            return;
+        }
+
+        btnSubtitle.setAlpha(1f);
+        btnSubtitle.setText(subtitlesEnabled
+                ? R.string.subtitle_on_short
+                : R.string.subtitle_off_short);
+    }
+
+    private void toggleSubtitles() {
+        if (!subtitleFileAvailable) {
+            Toast.makeText(this, R.string.subtitles_not_found, Toast.LENGTH_SHORT).show();
+            resetHideControlsTimer();
+            return;
+        }
+
+        subtitlesEnabled = !subtitlesEnabled;
+        updateSubtitleButtonState();
+
+        if (subtitlesEnabled && mediaPlayer != null && isPrepared) {
+            updateSubtitleForPosition(mediaPlayer.getCurrentPosition());
+            Toast.makeText(this, R.string.subtitles_on, Toast.LENGTH_SHORT).show();
+        } else {
+            hideSubtitleOverlay();
+            Toast.makeText(this, R.string.subtitles_off, Toast.LENGTH_SHORT).show();
+        }
+
+        resetHideControlsTimer();
+    }
+
+    private void prepareSubtitleTrack(String videoPath) {
+        subtitleCues.clear();
+        subtitleFileAvailable = false;
+        currentSubtitleIndex = -1;
+        hideSubtitleOverlay();
+
+        File subtitleFile = findSubtitleFile(videoPath);
+        if (subtitleFile != null) {
+            loadSubtitleCues(subtitleFile);
+        }
+
+        updateSubtitleButtonState();
+    }
+
+    private File findSubtitleFile(String videoPath) {
+        if (videoPath == null || videoPath.startsWith("http://") || videoPath.startsWith("https://")) {
+            return null;
+        }
+
+        File videoFile = new File(videoPath);
+        File parent = videoFile.getParentFile();
+        if (parent == null) {
+            return null;
+        }
+
+        String fileName = videoFile.getName();
+        int extensionIndex = fileName.lastIndexOf('.');
+        String baseName = extensionIndex >= 0 ? fileName.substring(0, extensionIndex) : fileName;
+
+        File lowerCaseFile = new File(parent, baseName + ".srt");
+        if (lowerCaseFile.exists()) {
+            return lowerCaseFile;
+        }
+
+        File upperCaseFile = new File(parent, baseName + ".SRT");
+        if (upperCaseFile.exists()) {
+            return upperCaseFile;
+        }
+
+        return null;
+    }
+
+    private void loadSubtitleCues(File subtitleFile) {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(new FileInputStream(subtitleFile), "UTF-8"))) {
+            List<String> blockLines = new ArrayList<>();
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("\uFEFF")) {
+                    line = line.substring(1);
+                }
+
+                if (line.trim().isEmpty()) {
+                    addSubtitleCueBlock(blockLines);
+                    blockLines.clear();
+                } else {
+                    blockLines.add(line);
+                }
+            }
+
+            addSubtitleCueBlock(blockLines);
+            subtitleFileAvailable = !subtitleCues.isEmpty();
+        } catch (IOException e) {
+            subtitleCues.clear();
+            subtitleFileAvailable = false;
+        }
+    }
+
+    private void addSubtitleCueBlock(List<String> blockLines) {
+        if (blockLines == null || blockLines.isEmpty()) {
+            return;
+        }
+
+        int timeLineIndex = -1;
+        for (int i = 0; i < blockLines.size(); i++) {
+            if (blockLines.get(i).contains("-->")) {
+                timeLineIndex = i;
+                break;
+            }
+        }
+
+        if (timeLineIndex == -1) {
+            return;
+        }
+
+        String[] timeRange = blockLines.get(timeLineIndex).split("-->");
+        if (timeRange.length != 2) {
+            return;
+        }
+
+        long startMs = parseSubtitleTimeToMs(timeRange[0]);
+        long endMs = parseSubtitleTimeToMs(timeRange[1]);
+        if (startMs < 0 || endMs <= startMs) {
+            return;
+        }
+
+        StringBuilder textBuilder = new StringBuilder();
+        for (int i = timeLineIndex + 1; i < blockLines.size(); i++) {
+            String textLine = blockLines.get(i).trim();
+            if (textLine.isEmpty()) {
+                continue;
+            }
+            if (textBuilder.length() > 0) {
+                textBuilder.append('\n');
+            }
+            textBuilder.append(textLine);
+        }
+
+        if (textBuilder.length() == 0) {
+            return;
+        }
+
+        subtitleCues.add(new SubtitleCue(startMs, endMs, textBuilder.toString()));
+    }
+
+    private long parseSubtitleTimeToMs(String value) {
+        if (value == null) {
+            return -1;
+        }
+
+        String normalized = value.trim().replace('.', ',');
+        String[] timeAndMs = normalized.split(",");
+        if (timeAndMs.length != 2) {
+            return -1;
+        }
+
+        String[] hms = timeAndMs[0].trim().split(":");
+        if (hms.length != 3) {
+            return -1;
+        }
+
+        try {
+            long hours = Long.parseLong(hms[0].trim());
+            long minutes = Long.parseLong(hms[1].trim());
+            long seconds = Long.parseLong(hms[2].trim());
+            long millis = Long.parseLong(timeAndMs[1].trim());
+
+            return hours * 3600000L + minutes * 60000L + seconds * 1000L + millis;
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    private void updateSubtitleForPosition(int positionMs) {
+        if (!subtitlesEnabled || !subtitleFileAvailable || subtitleCues.isEmpty()) {
+            hideSubtitleOverlay();
+            return;
+        }
+
+        for (int i = 0; i < subtitleCues.size(); i++) {
+            SubtitleCue cue = subtitleCues.get(i);
+            if (positionMs >= cue.startMs && positionMs <= cue.endMs) {
+                if (currentSubtitleIndex != i) {
+                    currentSubtitleIndex = i;
+                    tvSubtitle.setText(cue.text);
+                    tvSubtitle.setVisibility(View.VISIBLE);
+                }
+                return;
+            }
+
+            if (positionMs < cue.startMs) {
+                break;
+            }
+        }
+
+        hideSubtitleOverlay();
+    }
+
+    private void hideSubtitleOverlay() {
+        currentSubtitleIndex = -1;
+        if (tvSubtitle != null) {
+            tvSubtitle.setText("");
+            tvSubtitle.setVisibility(View.GONE);
+        }
+    }
+
+    private void updateQualityBadge(int width, int height) {
+        if (tvQualityBadge != null) {
+            tvQualityBadge.setText(getQualityLabel(width, height));
+        }
+    }
+
+    private String getQualityLabel(int width, int height) {
+        if (width <= 0 || height <= 0) {
+            return getString(R.string.quality_unknown);
+        }
+
+        int largerSide = Math.max(width, height);
+        if (largerSide >= 3840) {
+            return getString(R.string.quality_4k);
+        }
+        if (largerSide >= 2560) {
+            return getString(R.string.quality_2k);
+        }
+        if (largerSide >= 1920) {
+            return getString(R.string.quality_fhd);
+        }
+        if (largerSide >= 1280) {
+            return getString(R.string.quality_hd);
+        }
+        if (largerSide >= 854) {
+            return getString(R.string.quality_sd);
+        }
+        return getString(R.string.quality_low);
+    }
+
     private void initMediaPlayer() {
         if (mediaPlayer == null) {
             mediaPlayer = new MediaPlayer();
@@ -863,6 +1194,8 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
                 ? videoTitles.get(currentIndex)
                 : "Unknown Video";
         tvVideoTitle.setText(title != null ? title : "Unknown Video");
+        prepareSubtitleTrack(path);
+        updateQualityBadge(0, 0);
 
         try {
             initMediaPlayer();
@@ -885,6 +1218,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         tvTotalTime.setText(VideoUtils.formatDuration(duration));
 
         adjustAspectRatio(mp.getVideoWidth(), mp.getVideoHeight());
+        updateQualityBadge(mp.getVideoWidth(), mp.getVideoHeight());
 
         if (videoIds != null && currentIndex < videoIds.length) {
             long videoId = videoIds[currentIndex];
@@ -902,23 +1236,41 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
             mp.setPlaybackParams(mp.getPlaybackParams().setSpeed(currentPlaybackSpeed));
         }
         updateSpeedButtonText();
+        updateSubtitleButtonState();
 
         mp.start();
         btnPlayPause.setImageResource(R.drawable.ic_pause);
+        updateProgress();
         handler.post(updateProgressRunnable);
         resetHideControlsTimer();
     }
 
     @Override
     public void onCompletion(MediaPlayer mp) {
-        btnPlayPause.setImageResource(R.drawable.ic_play);
         handler.removeCallbacks(updateProgressRunnable);
-        showControls();
         saveWatchPosition(0);
+        hideSubtitleOverlay();
+
+        if (repeatMode == REPEAT_MODE_ONE) {
+            loadVideo();
+            return;
+        }
 
         if (currentIndex < videoPaths.size() - 1) {
-            playNext();
+            currentIndex++;
+            loadVideo();
+            return;
         }
+
+        if (repeatMode == REPEAT_MODE_ALL && !videoPaths.isEmpty()) {
+            currentIndex = 0;
+            loadVideo();
+            return;
+        }
+
+        btnPlayPause.setImageResource(R.drawable.ic_play);
+        showControls();
+        updateProgress();
     }
 
     @Override
@@ -930,6 +1282,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     @Override
     public void onVideoSizeChanged(MediaPlayer mp, int width, int height) {
         adjustAspectRatio(width, height);
+        updateQualityBadge(width, height);
     }
 
     @Override
@@ -972,26 +1325,42 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     }
 
     private void playNext() {
+        if (videoPaths == null || videoPaths.isEmpty()) {
+            return;
+        }
+
+        if (mediaPlayer != null && isPrepared) {
+            saveWatchPosition(mediaPlayer.getCurrentPosition());
+        }
+
         if (currentIndex < videoPaths.size() - 1) {
-            if (mediaPlayer != null) {
-                saveWatchPosition(mediaPlayer.getCurrentPosition());
-            }
             currentIndex++;
             loadVideo();
+        } else if (repeatMode == REPEAT_MODE_ALL && videoPaths.size() > 1) {
+            currentIndex = 0;
+            loadVideo();
         } else {
-            Toast.makeText(this, "Last video", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.last_video, Toast.LENGTH_SHORT).show();
         }
     }
 
     private void playPrevious() {
+        if (videoPaths == null || videoPaths.isEmpty()) {
+            return;
+        }
+
+        if (mediaPlayer != null && isPrepared) {
+            saveWatchPosition(mediaPlayer.getCurrentPosition());
+        }
+
         if (currentIndex > 0) {
-            if (mediaPlayer != null) {
-                saveWatchPosition(mediaPlayer.getCurrentPosition());
-            }
             currentIndex--;
             loadVideo();
+        } else if (repeatMode == REPEAT_MODE_ALL && videoPaths.size() > 1) {
+            currentIndex = videoPaths.size() - 1;
+            loadVideo();
         } else {
-            Toast.makeText(this, "First video", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.first_video, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -1000,6 +1369,9 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
             int currentPos = mediaPlayer.getCurrentPosition();
             seekBar.setProgress(currentPos);
             tvCurrentTime.setText(VideoUtils.formatDuration(currentPos));
+            updateSubtitleForPosition(currentPos);
+        } else {
+            hideSubtitleOverlay();
         }
     }
 
@@ -1167,7 +1539,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
 
         if (minutes == 0) {
             tvSleepTimer.setVisibility(View.GONE);
-            Toast.makeText(this, "Sleep timer off", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.sleep_timer_off_message, Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -1193,7 +1565,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         };
 
         handler.postDelayed(sleepTimerRunnable, 60000);
-        Toast.makeText(this, "Sleep timer set for " + minutes + " minutes", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.sleep_timer_set_for, minutes), Toast.LENGTH_SHORT).show();
     }
 
     private void updateSleepTimerDisplay() {
@@ -1207,17 +1579,18 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         int width = mediaPlayer.getVideoWidth();
         int height = mediaPlayer.getVideoHeight();
         String duration = VideoUtils.formatDuration(mediaPlayer.getDuration());
-        String title = videoTitles != null && currentIndex < videoTitles.size()
-                ? videoTitles.get(currentIndex)
-                : "Unknown Video";
 
-        String info = "Title: " + title + "\n\n" +
-                "Path: " + path + "\n\n" +
-                "Resolution: " + width + "x" + height + "\n\n" +
-                "Duration: " + duration;
+        String info = getString(R.string.info_path) + ": " + path + "\n\n"
+                + getString(R.string.info_resolution) + ": " + width + "x" + height + "\n\n"
+                + getString(R.string.info_quality) + ": " + getQualityLabel(width, height) + "\n\n"
+                + getString(R.string.info_duration) + ": " + duration + "\n\n"
+                + getString(R.string.info_subtitles) + ": "
+                + getString(subtitleFileAvailable
+                ? R.string.info_subtitles_available
+                : R.string.info_subtitles_unavailable);
 
         new AlertDialog.Builder(this)
-                .setTitle(R.string.video_info)
+                .setTitle(R.string.video_info_title)
                 .setMessage(info)
                 .setPositiveButton(R.string.ok, null)
                 .show();
@@ -1269,6 +1642,13 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     }
 
     private void resumePlaybackPosition() {
+        hideSubtitleOverlay();
+        updateRepeatButtonText();
+        updateSubtitleButtonState();
+
+        if (isSurfaceCreated && mediaPlayer == null) {
+            loadVideo();
+        }
     }
 
     @Override
@@ -1313,7 +1693,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     @Override
     public void onBackPressed() {
         if (isLocked) {
-            Toast.makeText(this, "Screen is locked", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.screen_locked, Toast.LENGTH_SHORT).show();
             toggleLockVisibility();
             return;
         }
