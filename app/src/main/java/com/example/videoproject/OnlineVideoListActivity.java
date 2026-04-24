@@ -68,25 +68,25 @@ public class OnlineVideoListActivity extends Activity {
         List<OnlineVideoItem> samples = new ArrayList<>();
         samples.add(new OnlineVideoItem(
                 -1,
-                "Big Buck Bunny",
-                "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-                "Public MP4 sample for online playback demo.",
+                "Sample Video 5s",
+                "https://samplelib.com/preview/mp4/sample-5s.mp4",
+                "Short HTTPS MP4 sample for quick playback testing.",
                 false,
                 0
         ));
         samples.add(new OnlineVideoItem(
                 -2,
-                "Elephant Dream",
-                "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
-                "Short public demo video over HTTPS.",
+                "Sample Video 10s",
+                "https://samplelib.com/preview/mp4/sample-10s.mp4",
+                "Longer HTTPS MP4 sample to verify buffering and controls.",
                 false,
                 0
         ));
         samples.add(new OnlineVideoItem(
                 -3,
-                "For Bigger Blazes",
-                "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-                "Another direct MP4 sample to verify player stability.",
+                "Big Buck Bunny Clip",
+                "https://www.w3schools.com/html/mov_bbb.mp4",
+                "Public HTTPS MP4 clip for online playback demo.",
                 false,
                 0
         ));

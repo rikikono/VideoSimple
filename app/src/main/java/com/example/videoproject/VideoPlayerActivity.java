@@ -129,6 +129,8 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     private boolean subtitleFileAvailable = false;
     private final List<SubtitleCue> subtitleCues = new ArrayList<>();
     private int currentSubtitleIndex = -1;
+    private boolean isGeneratingAiSubtitles = false;
+    private String generatingSubtitleVideoPath = null;
 
     private static class SubtitleCue {
         final long startMs;
@@ -345,7 +347,15 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         btnSubtitle.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                toggleSubtitles();
+                handleSubtitleButtonClick();
+            }
+        });
+
+        btnSubtitle.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                showSubtitleOptionsDialog();
+                return true;
             }
         });
 
@@ -929,9 +939,23 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
             return;
         }
 
+        String currentVideoPath = getCurrentVideoPath();
+        boolean isGeneratingForCurrentVideo = isGeneratingAiSubtitles
+                && currentVideoPath != null
+                && currentVideoPath.equals(generatingSubtitleVideoPath);
+
+        if (isGeneratingForCurrentVideo) {
+            btnSubtitle.setText(R.string.subtitle_generating_short);
+            btnSubtitle.setAlpha(1f);
+            return;
+        }
+
         if (!subtitleFileAvailable) {
-            btnSubtitle.setText(R.string.subtitle_unavailable_short);
-            btnSubtitle.setAlpha(0.5f);
+            boolean localVideo = isLocalVideoPath(currentVideoPath);
+            btnSubtitle.setText(localVideo
+                    ? R.string.subtitle_generate_ai_short
+                    : R.string.subtitle_unavailable_short);
+            btnSubtitle.setAlpha(localVideo ? 1f : 0.5f);
             return;
         }
 
@@ -941,10 +965,287 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
                 : R.string.subtitle_off_short);
     }
 
+    private void handleSubtitleButtonClick() {
+        if (subtitleFileAvailable) {
+            toggleSubtitles();
+        } else {
+            showSubtitleOptionsDialog();
+        }
+    }
+
+    private void showSubtitleOptionsDialog() {
+        final String videoPath = getCurrentVideoPath();
+        if (videoPath == null) {
+            Toast.makeText(this, R.string.error_playing_video, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final boolean localVideo = isLocalVideoPath(videoPath);
+        if (!localVideo && !subtitleFileAvailable) {
+            Toast.makeText(this, R.string.ai_subtitle_local_only, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        final boolean hasApiKey = AiSubtitleGenerator.hasApiKey(this);
+        final String primaryAction = getString(subtitleFileAvailable
+                ? R.string.regenerate_ai_subtitles
+                : (hasApiKey ? R.string.generate_ai_subtitles : R.string.set_ai_api_key_and_generate));
+
+        final int actionToggle = 1;
+        final int actionViewList = 2;
+        final int actionPrimary = 3;
+        final int actionSetApiKey = 4;
+        final int actionClearApiKey = 5;
+
+        final List<String> options = new ArrayList<>();
+        final List<Integer> actionIds = new ArrayList<>();
+
+        if (subtitleFileAvailable && !subtitleCues.isEmpty()) {
+            options.add(getString(subtitlesEnabled
+                    ? R.string.turn_subtitles_off
+                    : R.string.turn_subtitles_on));
+            actionIds.add(actionToggle);
+
+            options.add(getString(R.string.view_subtitle_list));
+            actionIds.add(actionViewList);
+        }
+
+        if (localVideo) {
+            options.add(primaryAction);
+            actionIds.add(actionPrimary);
+
+            options.add(getString(R.string.set_ai_api_key));
+            actionIds.add(actionSetApiKey);
+
+            if (hasApiKey) {
+                options.add(getString(R.string.clear_ai_api_key));
+                actionIds.add(actionClearApiKey);
+            }
+        }
+
+        final String[] optionItems = options.toArray(new String[0]);
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.subtitle_options)
+                .setItems(optionItems, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        if (which < 0 || which >= actionIds.size()) {
+                            return;
+                        }
+
+                        int action = actionIds.get(which);
+                        if (action == actionToggle) {
+                            toggleSubtitles();
+                        } else if (action == actionViewList) {
+                            showSubtitleBrowserDialog();
+                        } else if (action == actionPrimary) {
+                            if (hasApiKey) {
+                                generateAiSubtitles();
+                            } else {
+                                showAiApiKeyDialog(true);
+                            }
+                        } else if (action == actionSetApiKey) {
+                            showAiApiKeyDialog(false);
+                        } else if (action == actionClearApiKey) {
+                            AiSubtitleGenerator.saveApiKey(VideoPlayerActivity.this, "");
+                            Toast.makeText(VideoPlayerActivity.this,
+                                    R.string.ai_api_key_cleared,
+                                    Toast.LENGTH_SHORT).show();
+                            updateSubtitleButtonState();
+                        }
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+
+        resetHideControlsTimer();
+    }
+
+    private void showSubtitleBrowserDialog() {
+        if (!subtitleFileAvailable || subtitleCues.isEmpty()) {
+            Toast.makeText(this, R.string.subtitles_not_found, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String[] items = new String[subtitleCues.size()];
+        for (int i = 0; i < subtitleCues.size(); i++) {
+            SubtitleCue cue = subtitleCues.get(i);
+            String preview = cue.text == null ? "" : cue.text.replace('\n', ' ').trim();
+            if (preview.length() > 64) {
+                preview = preview.substring(0, 61) + "...";
+            }
+            items[i] = VideoUtils.formatDuration(cue.startMs) + "  " + preview;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.subtitle_list_title)
+                .setItems(items, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        if (which < 0 || which >= subtitleCues.size()) {
+                            return;
+                        }
+
+                        SubtitleCue cue = subtitleCues.get(which);
+                        subtitlesEnabled = true;
+                        updateSubtitleButtonState();
+
+                        if (mediaPlayer != null && isPrepared) {
+                            mediaPlayer.seekTo((int) cue.startMs);
+                            updateSubtitleForPosition((int) cue.startMs);
+                        }
+
+                        Toast.makeText(VideoPlayerActivity.this,
+                                getString(R.string.subtitle_seek_to,
+                                        VideoUtils.formatDuration(cue.startMs)),
+                                Toast.LENGTH_SHORT).show();
+                        resetHideControlsTimer();
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+
+        resetHideControlsTimer();
+    }
+
+    private void showAiApiKeyDialog(final boolean generateAfterSave) {
+        final EditText input = new EditText(this);
+        input.setHint(R.string.ai_api_key_hint);
+
+        String currentApiKey = AiSubtitleGenerator.getApiKey(this);
+        if (currentApiKey != null && !currentApiKey.trim().isEmpty()) {
+            input.setText(currentApiKey);
+            input.setSelection(currentApiKey.length());
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.ai_api_key_title)
+                .setView(input)
+                .setPositiveButton(R.string.save, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        String apiKey = input.getText() == null
+                                ? ""
+                                : input.getText().toString().trim();
+
+                        if (apiKey.isEmpty()) {
+                            Toast.makeText(VideoPlayerActivity.this,
+                                    R.string.ai_api_key_required,
+                                    Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+
+                        AiSubtitleGenerator.saveApiKey(VideoPlayerActivity.this, apiKey);
+                        Toast.makeText(VideoPlayerActivity.this,
+                                R.string.ai_api_key_saved,
+                                Toast.LENGTH_SHORT).show();
+                        updateSubtitleButtonState();
+
+                        if (generateAfterSave) {
+                            generateAiSubtitles();
+                        }
+                    }
+                })
+                .setNeutralButton(R.string.clear_ai_api_key, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        AiSubtitleGenerator.saveApiKey(VideoPlayerActivity.this, "");
+                        Toast.makeText(VideoPlayerActivity.this,
+                                R.string.ai_api_key_cleared,
+                                Toast.LENGTH_SHORT).show();
+                        updateSubtitleButtonState();
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
+
+        resetHideControlsTimer();
+    }
+
+    private void generateAiSubtitles() {
+        final String videoPath = getCurrentVideoPath();
+        if (videoPath == null) {
+            Toast.makeText(this, R.string.error_playing_video, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (!isLocalVideoPath(videoPath)) {
+            Toast.makeText(this, R.string.ai_subtitle_local_only, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (isGeneratingAiSubtitles) {
+            Toast.makeText(this, R.string.ai_subtitle_generating, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        isGeneratingAiSubtitles = true;
+        generatingSubtitleVideoPath = videoPath;
+        subtitlesEnabled = false;
+        updateSubtitleButtonState();
+        hideSubtitleOverlay();
+
+        AiSubtitleGenerator.generateSubtitles(this, videoPath, new AiSubtitleGenerator.Callback() {
+            @Override
+            public void onStarted() {
+                Toast.makeText(VideoPlayerActivity.this,
+                        R.string.ai_subtitle_generating,
+                        Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onSuccess(File subtitleFile) {
+                isGeneratingAiSubtitles = false;
+                generatingSubtitleVideoPath = null;
+
+                String currentVideoPath = getCurrentVideoPath();
+                if (videoPath.equals(currentVideoPath)) {
+                    subtitlesEnabled = true;
+                    prepareSubtitleTrack(videoPath);
+                    updateSubtitleButtonState();
+
+                    if (mediaPlayer != null && isPrepared) {
+                        updateSubtitleForPosition(mediaPlayer.getCurrentPosition());
+                    }
+                } else {
+                    updateSubtitleButtonState();
+                }
+
+                Toast.makeText(VideoPlayerActivity.this,
+                        R.string.ai_subtitle_generated,
+                        Toast.LENGTH_SHORT).show();
+                resetHideControlsTimer();
+            }
+
+            @Override
+            public void onError(String message) {
+                isGeneratingAiSubtitles = false;
+                generatingSubtitleVideoPath = null;
+                updateSubtitleButtonState();
+                Toast.makeText(VideoPlayerActivity.this,
+                        getString(R.string.ai_subtitle_generation_failed, message),
+                        Toast.LENGTH_LONG).show();
+                resetHideControlsTimer();
+            }
+        });
+    }
+
+    private String getCurrentVideoPath() {
+        if (videoPaths == null || currentIndex < 0 || currentIndex >= videoPaths.size()) {
+            return null;
+        }
+        return videoPaths.get(currentIndex);
+    }
+
+    private boolean isLocalVideoPath(String videoPath) {
+        return videoPath != null
+                && !videoPath.startsWith("http://")
+                && !videoPath.startsWith("https://");
+    }
+
     private void toggleSubtitles() {
         if (!subtitleFileAvailable) {
-            Toast.makeText(this, R.string.subtitles_not_found, Toast.LENGTH_SHORT).show();
-            resetHideControlsTimer();
+            showSubtitleOptionsDialog();
             return;
         }
 
@@ -977,7 +1278,16 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     }
 
     private File findSubtitleFile(String videoPath) {
-        if (videoPath == null || videoPath.startsWith("http://") || videoPath.startsWith("https://")) {
+        if (videoPath == null) {
+            return null;
+        }
+
+        File generatedFile = AiSubtitleGenerator.getGeneratedSubtitleFile(this, videoPath);
+        if (generatedFile.exists()) {
+            return generatedFile;
+        }
+
+        if (videoPath.startsWith("http://") || videoPath.startsWith("https://")) {
             return null;
         }
 

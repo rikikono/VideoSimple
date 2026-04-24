@@ -485,30 +485,100 @@ Bạn có thể thêm các ca kiểm thử sau vào phần kiểm thử hệ th�
 5. **Kiểm thử hiển thị chất lượng:** mở các video có độ phân giải khác nhau như 720p, 1080p. Kết quả mong đợi là nhãn chất lượng thay đổi đúng với độ phân giải video.
 6. **Kiểm thử hộp thoại thông tin video:** mở mục thông tin video. Kết quả mong đợi là hiển thị đầy đủ đường dẫn, độ phân giải, chất lượng, thời lượng và trạng thái phụ đề.
 
-### 10.5. Danh sách ảnh minh hoạ nên chụp và chèn vào báo cáo
+### 10.5. Danh sách ảnh minh hoạ nên chèn vào báo cáo kèm tên file cụ thể
 
-Để báo cáo trực quan hơn, nên bổ sung các ảnh chụp màn hình sau:
+Để người làm file Word chèn ảnh nhanh và đúng, có thể dùng trực tiếp danh sách dưới đây theo đúng tên file trong thư mục [`imageworld`](imageworld):
 
-| STT | Ảnh nên chụp | Nội dung cần thấy rõ | Gợi ý chú thích dưới ảnh |
+| STT | Tên file ảnh | Nên chèn vào phần nào | Nội dung ảnh / chú thích gợi ý |
 |---|---|---|---|
-| 1 | Màn hình danh sách video | Danh sách video sau khi quét từ thiết bị | Giao diện màn hình chính hiển thị danh sách video trong bộ nhớ máy |
-| 2 | Màn hình phát video cơ bản | Video đang phát, thanh tiến trình, nút play/pause | Giao diện trình phát video tích hợp trong ứng dụng |
-| 3 | Màn hình phát với nhãn chất lượng | Badge `HD/FHD/...` ở thanh trên | Chức năng nhận diện và hiển thị chất lượng video theo độ phân giải |
-| 4 | Màn hình phát với chế độ lặp | Nút repeat ở các trạng thái khác nhau | Chế độ lặp video hỗ trợ lặp một video hoặc lặp toàn danh sách |
-| 5 | Màn hình phát có phụ đề | Dòng phụ đề hiển thị ở gần đáy video | Chức năng hiển thị phụ đề rời định dạng `.srt` |
-| 6 | Hộp thoại thông tin video | Resolution, quality, subtitles, duration | Hộp thoại thông tin video sau khi được mở rộng |
-| 7 | Màn hình bookmark/note | Danh sách bookmark hoặc ghi chú theo mốc thời gian | Chức năng hỗ trợ học tập thông qua bookmark và note trong video |
-| 8 | Màn hình playlist | Danh sách playlist đã tạo | Chức năng quản lý playlist cá nhân |
-| 9 | Màn hình video online | Danh sách URL video online mẫu hoặc do người dùng thêm | Chức năng lưu và phát video online |
-| 10 | Màn hình thư viện ảnh | Danh sách ảnh theo lưới | Chức năng mở rộng đa phương tiện với thư viện ảnh |
+| 1 | [`01_danh_sach_video_dark.png`](imageworld/01_danh_sach_video_dark.png) | Chương II - giao diện màn hình chính | Giao diện màn hình chính hiển thị danh sách video trong bộ nhớ máy |
+| 2 | [`02_menu_chinh_dark_mode_off.png`](imageworld/02_menu_chinh_dark_mode_off.png) | Chương II - menu chính / dark mode | Menu chính của ứng dụng ở chế độ tối |
+| 3 | [`03_tao_playlist_dialog_dark.png`](imageworld/03_tao_playlist_dialog_dark.png) | Chương II - chức năng playlist | Hộp thoại tạo playlist mới |
+| 4 | [`04_menu_sap_xep_video_dark.png`](imageworld/04_menu_sap_xep_video_dark.png) | Chương II - sắp xếp danh sách video | Chức năng sắp xếp video theo nhiều tiêu chí |
+| 5 | [`05_menu_chinh_light_mode_on.png`](imageworld/05_menu_chinh_light_mode_on.png) | Chương II - giao diện / theme | Menu chính của ứng dụng ở chế độ sáng |
+| 6 | [`06_playlist_chi_tiet_light.png`](imageworld/06_playlist_chi_tiet_light.png) | Chương II - playlist | Màn hình chi tiết playlist |
+| 7 | [`07_chon_video_vao_playlist_1.png`](imageworld/07_chon_video_vao_playlist_1.png) | Chương II - playlist | Chọn video để thêm vào playlist |
+| 8 | [`08_chon_video_vao_playlist_2.png`](imageworld/08_chon_video_vao_playlist_2.png) | Chương II - playlist | Tiếp tục thao tác thêm video vào playlist |
+| 9 | [`09_gallery_grid.png`](imageworld/09_gallery_grid.png) | Chương II - thư viện ảnh | Giao diện thư viện ảnh dạng lưới |
+| 10 | [`10_online_videos.png`](imageworld/10_online_videos.png) | Chương II - video online | Danh sách video online mẫu |
+| 11 | [`11_player_fhd.png`](imageworld/11_player_fhd.png) | Chương II - trình phát video | Giao diện trình phát video tích hợp, có badge chất lượng |
+| 12 | [`12_thong_tin_video.png`](imageworld/12_thong_tin_video.png) | Chương II - thông tin video | Hộp thoại thông tin video sau khi được mở rộng |
+| 13 | [`13_sleep_timer.png`](imageworld/13_sleep_timer.png) | Chương II - tính năng phát video | Chức năng hẹn giờ tắt trong trình phát |
+| 14 | [`14_notes_dialog.png`](imageworld/14_notes_dialog.png) | Chương II - bookmark / note | Hộp thoại ghi chú theo mốc thời gian |
+| 15 | [`15_bookmark_dialog.png`](imageworld/15_bookmark_dialog.png) | Chương II - bookmark / note | Hộp thoại bookmark theo mốc thời gian |
+| 16 | [`16_player_repeat_all.png`](imageworld/16_player_repeat_all.png) | Chương II - trình phát video | Chế độ lặp Repeat All trong trình phát |
+| 17 | [`17_subtitle_lines_dialog.png`](imageworld/17_subtitle_lines_dialog.png) | Chương II - subtitle / AI subtitle | Danh sách các dòng subtitle đã nạp, có thể bấm để nhảy tới từng mốc |
+| 18 | [`18_resume_playback_dialog.png`](imageworld/18_resume_playback_dialog.png) | Chương II hoặc Chương III - tiếp tục xem | Hộp thoại Resume Playback khi mở lại video đang xem dở |
+| 19 | [`19_subtitle_options_dialog.png`](imageworld/19_subtitle_options_dialog.png) | Chương II - subtitle / AI subtitle | Hộp thoại Subtitle options với các tùy chọn bật/tắt subtitle và AI subtitle |
 
-### 10.6. Gợi ý vị trí chèn ảnh trong báo cáo Word
+### 10.6. Hướng dẫn chèn ảnh vào file Word cho nhanh
 
-- Ảnh 1 nên đặt ở phần mô tả giao diện màn hình chính trong Chương II.
-- Ảnh 2, 3, 4, 5, 6 nên đặt trong mục mô tả chức năng phát video vì đây là nhóm tính năng trung tâm.
-- Ảnh 7 đặt ở mục bookmark và note.
-- Ảnh 8 đặt ở phần playlist.
-- Ảnh 9 đặt ở phần video online.
-- Ảnh 10 đặt ở phần thư viện ảnh.
+Có thể giao cho người làm Word chèn theo thứ tự sau:
 
-Nếu cần trình bày gọn hơn, bạn có thể chọn tối thiểu 5 ảnh quan trọng nhất gồm: màn hình danh sách video, trình phát cơ bản, chế độ lặp, phụ đề, và hộp thoại thông tin video. Đây là các ảnh thể hiện rõ nhất phần nâng cấp mới của project.
+- **Nhóm giao diện chính và quản lý video:** chèn ảnh 1, 2, 4, 5.
+- **Nhóm playlist:** chèn ảnh 3, 6, 7, 8.
+- **Nhóm video online và thư viện ảnh:** chèn ảnh 9, 10.
+- **Nhóm trình phát video:** chèn ảnh 11, 12, 13, 16, 18.
+- **Nhóm bookmark / note:** chèn ảnh 14, 15.
+- **Nhóm subtitle / AI subtitle:** chèn ảnh 17, 19.
+
+Nếu cần làm báo cáo ngắn gọn nhưng vẫn đủ mạnh, nên ưu tiên tối thiểu các file sau:
+
+- [`01_danh_sach_video_dark.png`](imageworld/01_danh_sach_video_dark.png)
+- [`11_player_fhd.png`](imageworld/11_player_fhd.png)
+- [`12_thong_tin_video.png`](imageworld/12_thong_tin_video.png)
+- [`16_player_repeat_all.png`](imageworld/16_player_repeat_all.png)
+- [`17_subtitle_lines_dialog.png`](imageworld/17_subtitle_lines_dialog.png)
+- [`19_subtitle_options_dialog.png`](imageworld/19_subtitle_options_dialog.png)
+
+Đây là bộ ảnh ngắn gọn nhưng thể hiện rõ nhất các phần nâng cấp chính của project.
+
+### 10.7. Bổ sung tính năng tạo phụ đề tự động bằng speech-to-text online
+
+Ngoài cơ chế đọc phụ đề rời `.srt` đặt cùng thư mục với video, ứng dụng hiện đã được mở rộng thêm khả năng **tạo phụ đề tự động từ âm thanh của video thông qua dịch vụ speech-to-text online**.
+
+Cụ thể, hệ thống tích hợp dịch vụ **AssemblyAI** thông qua lớp [`AiSubtitleGenerator.java`](app/src/main/java/com/example/videoproject/AiSubtitleGenerator.java). Khi người dùng mở một **video cục bộ** nhưng chưa có phụ đề, nút phụ đề trong [`VideoPlayerActivity.java`](app/src/main/java/com/example/videoproject/VideoPlayerActivity.java) sẽ chuyển sang trạng thái `CC AI`. Người dùng có thể nhập API key của AssemblyAI, sau đó yêu cầu hệ thống tạo phụ đề tự động.
+
+Luồng xử lý của tính năng này gồm các bước:
+
+1. Lấy đường dẫn video cục bộ đang phát.
+2. Tải tệp video lên AssemblyAI bằng kết nối Internet.
+3. Gửi yêu cầu speech-to-text để nhận transcript có mốc thời gian.
+4. Theo dõi tiến trình xử lý của dịch vụ cho tới khi transcript hoàn tất.
+5. Gom các từ có timestamp thành các câu phụ đề theo định dạng `.srt`.
+6. Lưu tệp phụ đề sinh ra vào thư mục riêng của ứng dụng.
+7. Nạp lại phụ đề vừa tạo vào trình phát và cho phép hiển thị ngay trên màn hình video.
+
+Cách triển khai này có ưu điểm là không cần tích hợp thư viện native phức tạp để tách audio hoặc chạy mô hình nhận diện giọng nói trực tiếp trên thiết bị. Nhờ vậy, kiến trúc của ứng dụng vẫn giữ được sự gọn nhẹ, phù hợp với project Java Android hiện tại.
+
+### 10.8. Lưu ý kỹ thuật cần nêu rõ thêm trong báo cáo
+
+Để phần mô tả chính xác hơn về mặt kỹ thuật, nên nêu rõ các giới hạn và điều kiện sử dụng của tính năng speech-to-text online:
+
+- Tính năng chỉ hỗ trợ **video cục bộ trên thiết bị**, chưa áp dụng cho video online phát từ URL.
+- Thiết bị cần có **kết nối Internet** ổn định trong quá trình upload và chờ transcript.
+- Người dùng cần cung cấp **AssemblyAI API key** hợp lệ; chi phí sử dụng và quota phụ thuộc gói dịch vụ của nhà cung cấp.
+- Thời gian tạo phụ đề phụ thuộc vào dung lượng video, tốc độ mạng và thời gian xử lý phía máy chủ.
+- Tệp phụ đề được lưu trong **thư mục riêng của ứng dụng** thay vì ghi trực tiếp vào thư mục chứa video, nhằm tránh phát sinh thêm vấn đề về quyền ghi file.
+- Khi video đã có phụ đề AI được tạo từ trước, trình phát có thể ưu tiên nạp lại tệp phụ đề đó khi mở lại cùng video.
+- Đây là cơ chế **speech-to-text thật qua Internet**, nên chất lượng phụ đề phụ thuộc vào độ rõ của âm thanh đầu vào, ngôn ngữ nói và độ chính xác của dịch vụ nhận diện.
+
+### 10.9. Kịch bản kiểm thử nên bổ sung thêm cho tính năng AI subtitle
+
+Bạn có thể thêm các ca kiểm thử sau vào Chương III để mô tả rõ hơn phần mở rộng mới:
+
+1. **Kiểm thử nhập API key:** mở tùy chọn subtitle AI, nhập API key hợp lệ. Kết quả mong đợi là key được lưu lại và có thể dùng cho lần tạo phụ đề tiếp theo.
+2. **Kiểm thử tạo subtitle AI cho video cục bộ:** mở một video local chưa có `.srt`, chọn tạo phụ đề AI. Kết quả mong đợi là sau khi xử lý xong, phụ đề được sinh ra và hiển thị trên trình phát.
+3. **Kiểm thử video online:** mở video online từ URL và thử dùng chức năng AI subtitle. Kết quả mong đợi là ứng dụng thông báo chỉ hỗ trợ video cục bộ.
+4. **Kiểm thử mở lại video đã tạo subtitle:** sau khi tạo phụ đề thành công, thoát ra và mở lại cùng video. Kết quả mong đợi là phụ đề đã sinh trước đó được nạp lại nhanh chóng.
+5. **Kiểm thử đổi video trong lúc AI đang xử lý:** bắt đầu tạo phụ đề cho video A rồi chuyển sang video B. Kết quả mong đợi là kết quả subtitle của video A không bị gán nhầm vào trạng thái của video B.
+6. **Kiểm thử lỗi mạng hoặc API key sai:** ngắt mạng hoặc nhập API key không hợp lệ. Kết quả mong đợi là ứng dụng báo lỗi rõ ràng và không bị crash.
+
+### 10.10. Ghi chú cuối về ảnh subtitle trong báo cáo
+
+Hiện tại bộ ảnh đã đủ tốt để nộp báo cáo, vì đã có hai ảnh thể hiện rõ luồng subtitle:
+
+- [`17_subtitle_lines_dialog.png`](imageworld/17_subtitle_lines_dialog.png): chứng minh subtitle đã được nạp và có thể duyệt từng dòng.
+- [`19_subtitle_options_dialog.png`](imageworld/19_subtitle_options_dialog.png): chứng minh có phần quản lý subtitle và AI subtitle trong trình phát.
+
+Nếu sau này muốn làm báo cáo đẹp hơn nữa, có thể bổ sung thêm **một ảnh subtitle overlay hiện trực tiếp trên video**. Tuy nhiên ảnh này hiện không còn là bắt buộc vì hai ảnh trên đã đủ làm bằng chứng chức năng.
