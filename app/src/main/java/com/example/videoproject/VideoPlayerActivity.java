@@ -7,6 +7,7 @@ import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -32,7 +33,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callback,
         MediaPlayer.OnPreparedListener, MediaPlayer.OnCompletionListener, MediaPlayer.OnErrorListener,
@@ -101,6 +104,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
     private ArrayList<String> videoTitles;
     private long[] videoIds;
     private int currentIndex = 0;
+    private boolean isOnlineVideo = false;
 
     private boolean isControlsVisible = true;
     private boolean isLocked = false;
@@ -162,6 +166,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         videoTitles = getIntent().getStringArrayListExtra("video_titles");
         videoIds = getIntent().getLongArrayExtra("video_ids");
         currentIndex = getIntent().getIntExtra("current_index", 0);
+        isOnlineVideo = getIntent().getBooleanExtra("is_online_video", false);
 
         if (videoPaths == null || videoPaths.isEmpty()) {
             Toast.makeText(this, R.string.error_playing_video, Toast.LENGTH_SHORT).show();
@@ -1479,6 +1484,77 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         return getString(R.string.quality_low);
     }
 
+    private boolean isOnlinePath(String path) {
+        return path != null && (path.startsWith("http://") || path.startsWith("https://"));
+    }
+
+    private boolean isRemoteVideo(String path) {
+        return isOnlineVideo || isOnlinePath(path);
+    }
+
+    private Map<String, String> buildVideoRequestHeaders(String path) {
+        Map<String, String> headers = new HashMap<>();
+        if (!isRemoteVideo(path)) {
+            return headers;
+        }
+        headers.put("User-Agent", "Mozilla/5.0 (Linux; Android 11) AppleWebKit/537.36 (KHTML, like Gecko) Chrome Mobile Safari/537.36");
+        headers.put("Accept", "*/*");
+        headers.put("Connection", "keep-alive");
+        return headers;
+    }
+
+    private void resetPlaybackUi() {
+        if (seekBar != null) {
+            seekBar.setProgress(0);
+            seekBar.setMax(0);
+        }
+        if (tvCurrentTime != null) {
+            tvCurrentTime.setText(VideoUtils.formatDuration(0));
+        }
+        if (tvTotalTime != null) {
+            tvTotalTime.setText(VideoUtils.formatDuration(0));
+        }
+        if (btnPlayPause != null) {
+            btnPlayPause.setImageResource(R.drawable.ic_play);
+        }
+    }
+
+    private void showPlaybackStatus(int messageResId) {
+        showPlaybackStatus(getString(messageResId));
+    }
+
+    private void showPlaybackStatus(String message) {
+        if (tvSubtitle == null || message == null || message.trim().isEmpty()) {
+            return;
+        }
+        currentSubtitleIndex = -1;
+        tvSubtitle.setText(message);
+        tvSubtitle.setVisibility(View.VISIBLE);
+    }
+
+    private void hidePlaybackStatus() {
+        if (subtitleFileAvailable && subtitlesEnabled && mediaPlayer != null && isPrepared) {
+            updateSubtitleForPosition(mediaPlayer.getCurrentPosition());
+            return;
+        }
+        hideSubtitleOverlay();
+    }
+
+    private void showPlaybackError(String path, int what, int extra) {
+        resetPlaybackUi();
+        if (isRemoteVideo(path)) {
+            showPlaybackStatus(R.string.error_playing_online_video);
+            String message = getString(R.string.error_playing_online_video);
+            if (what != -1 || extra != 0) {
+                message = message + " (what=" + what + ", extra=" + extra + ")";
+            }
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+            Toast.makeText(this, R.string.online_video_stream_hint, Toast.LENGTH_LONG).show();
+            return;
+        }
+        Toast.makeText(this, R.string.error_playing_video, Toast.LENGTH_SHORT).show();
+    }
+
     private void initMediaPlayer() {
         if (mediaPlayer == null) {
             mediaPlayer = new MediaPlayer();
@@ -1489,6 +1565,31 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
         } else {
             mediaPlayer.reset();
         }
+
+        mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
+        mediaPlayer.setScreenOnWhilePlaying(true);
+        mediaPlayer.setOnInfoListener(new MediaPlayer.OnInfoListener() {
+            @Override
+            public boolean onInfo(MediaPlayer mp, int what, int extra) {
+                String currentPath = getCurrentVideoPath();
+                if (!isRemoteVideo(currentPath)) {
+                    return false;
+                }
+
+                if (what == MediaPlayer.MEDIA_INFO_BUFFERING_START) {
+                    showPlaybackStatus(R.string.buffering_video);
+                    return true;
+                }
+
+                if (what == MediaPlayer.MEDIA_INFO_BUFFERING_END
+                        || what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
+                    hidePlaybackStatus();
+                    return true;
+                }
+
+                return false;
+            }
+        });
         isPrepared = false;
     }
 
@@ -1505,17 +1606,26 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
                 : "Unknown Video";
         tvVideoTitle.setText(title != null ? title : "Unknown Video");
         prepareSubtitleTrack(path);
+        resetPlaybackUi();
         updateQualityBadge(0, 0);
+
+        if (isRemoteVideo(path)) {
+            showPlaybackStatus(R.string.loading_online_video);
+        }
 
         try {
             initMediaPlayer();
-            mediaPlayer.setDataSource(path);
+            if (isRemoteVideo(path)) {
+                mediaPlayer.setDataSource(this, Uri.parse(path), buildVideoRequestHeaders(path));
+            } else {
+                mediaPlayer.setDataSource(path);
+            }
             if (isSurfaceCreated) {
                 mediaPlayer.setDisplay(surfaceHolder);
             }
             mediaPlayer.prepareAsync();
-        } catch (IOException e) {
-            Toast.makeText(this, R.string.error_playing_video, Toast.LENGTH_SHORT).show();
+        } catch (IOException | IllegalArgumentException | SecurityException e) {
+            showPlaybackError(path, -1, 0);
         }
     }
 
@@ -1529,6 +1639,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
 
         adjustAspectRatio(mp.getVideoWidth(), mp.getVideoHeight());
         updateQualityBadge(mp.getVideoWidth(), mp.getVideoHeight());
+        hidePlaybackStatus();
 
         if (videoIds != null && currentIndex < videoIds.length) {
             long videoId = videoIds[currentIndex];
@@ -1585,7 +1696,7 @@ public class VideoPlayerActivity extends Activity implements SurfaceHolder.Callb
 
     @Override
     public boolean onError(MediaPlayer mp, int what, int extra) {
-        Toast.makeText(this, R.string.error_playing_video, Toast.LENGTH_SHORT).show();
+        showPlaybackError(getCurrentVideoPath(), what, extra);
         return true;
     }
 

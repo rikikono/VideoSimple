@@ -148,6 +148,12 @@
 
     <!-- Errors -->
     <string name="error_playing_video">Error playing video</string>
+    <string name="error_playing_online_video">Unable to stream this online video</string>
+    <string name="loading_video">Loading video…</string>
+    <string name="loading_online_video">Loading online video…</string>
+    <string name="buffering_video">Buffering video…</string>
+    <string name="starting_video">Starting playback…</string>
+    <string name="online_video_stream_hint">This link may block streaming, not support partial-content requests, or use a codec that BlueStacks cannot decode.</string>
     <string name="last_video">Last video</string>
     <string name="first_video">First video</string>
     <string name="screen_locked">Screen is locked</string>
