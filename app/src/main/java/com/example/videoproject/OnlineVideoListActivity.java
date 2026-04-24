@@ -68,17 +68,17 @@ public class OnlineVideoListActivity extends Activity {
         List<OnlineVideoItem> samples = new ArrayList<>();
         samples.add(new OnlineVideoItem(
                 -1,
-                "Sample Video 5s",
-                "https://samplelib.com/preview/mp4/sample-5s.mp4",
-                "Short HTTPS MP4 sample for quick playback testing.",
+                "Big Buck Bunny",
+                "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+                "Reliable MP4 sample hosted on Google storage for streaming playback tests.",
                 false,
                 0
         ));
         samples.add(new OnlineVideoItem(
                 -2,
-                "Sample Video 10s",
-                "https://samplelib.com/preview/mp4/sample-10s.mp4",
-                "Longer HTTPS MP4 sample to verify buffering and controls.",
+                "Elephant Dream",
+                "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+                "Direct HTTPS MP4 sample with byte-range support for buffering and control tests.",
                 false,
                 0
         ));
